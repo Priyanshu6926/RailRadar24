@@ -34,6 +34,6 @@ export const useFavoritesStore = create<FavoritesState>()(
         else get().addFavorite(train);
       },
     }),
-    { name: 'railgaadi-favorites' }
+    { name: 'railradar24-favorites' }
   )
 );

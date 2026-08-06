@@ -1,7 +1,7 @@
 {
-  "name": "RailGaadi – Live Train Tracker",
-  "short_name": "RailGaadi",
-  "description": "Real-time Indian Railways tracking with interactive maps, delay analytics, and weather intelligence.",
+  "name": "RailRadar24 – Live Train Tracker",
+  "short_name": "RailRadar24",
+  "description": "Real-time Indian Railways tracking with interactive maps, delay analytics, terrain insights, and coach composition.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

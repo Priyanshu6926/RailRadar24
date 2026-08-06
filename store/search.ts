@@ -22,7 +22,7 @@ export const useSearchStore = create<SearchState>()(
       clearRecentSearches: () => set({ recentSearches: [] }),
     }),
     {
-      name: 'railgaadi-recent-searches',
+      name: 'railradar24-recent-searches',
     }
   )
 );

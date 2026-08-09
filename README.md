@@ -5,6 +5,8 @@
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38bdf8?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-4.5-red?style=for-the-badge&logo=mapbox)](https://maplibre.org/)
 [![RailRadar API](https://img.shields.io/badge/RailRadar_API-v1-0284c7?style=for-the-badge)](https://railradar.in/docs)
+[![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?style=for-the-badge&logo=render)](https://render.com)
+[![Vercel](https://img.shields.io/badge/Vercel-Deployed-000000?style=for-the-badge&logo=vercel)](https://vercel.com)
 
 **RailRadar24** is a next-generation real-time Indian Railways tracking platform built with **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, and **MapLibre GL**. It transforms raw train data into rich, actionable travel intelligence including live map tracking, section speed analytics, dynamic terrain insights, coach composition, platform guidance, and push notifications.
 
@@ -61,7 +63,7 @@
 | **Framework** | Next.js 14 (App Router, Server Components & API Routes) |
 | **Language** | TypeScript (Strict type checking) |
 | **Styling** | Tailwind CSS, Glassmorphism, CSS Variables, Framer Motion |
-| **Mapping** | MapLibre GL JS, MapTiler Vector Tiles, Turf.js |
+| **Mapping** | MapLibre GL JS, MapTiler Vector Tiles |
 | **State & Data Fetching** | TanStack React Query v5, Zustand, In-Memory Caching |
 | **External APIs** | RailRadar API, OpenStreetMap Overpass QL, OpenTopography API, OpenWeatherMap API |
 
@@ -118,7 +120,7 @@ RailRadar24/
 * **Node.js**: `v18.x` or higher
 * **npm**: `v9.x` or higher
 
-### Installation
+### Local Setup
 
 1. **Clone the repository:**
    ```bash
@@ -155,6 +157,25 @@ RailRadar24/
    npm run build
    npm start
    ```
+
+---
+
+## 🌐 Hosting & Deployment
+
+### Option A: Render (Web Service)
+1. Sign in to **[Render](https://dashboard.render.com)** with your GitHub account.
+2. Click **New +** $\rightarrow$ **Web Service** and connect `Priyanshu6926/RailRadar24`.
+3. Set the following options:
+   * **Runtime:** `Node`
+   * **Build Command:** `npm install && npm run build`
+   * **Start Command:** `npm start`
+4. Add Environment Variables (`RAILRADAR_API_KEY`, `NEXT_PUBLIC_MAPTILER_API_KEY`, `OPENWEATHER_API_KEY`, `OPENTOPOGRAPHY_API_KEY`, `NODE_VERSION=20.14.0`).
+5. Click **Create Web Service**.
+
+### Option B: Vercel
+1. Import `Priyanshu6926/RailRadar24` at **[Vercel](https://vercel.com)**.
+2. Configure Environment Variables in settings.
+3. Click **Deploy**.
 
 ---
 

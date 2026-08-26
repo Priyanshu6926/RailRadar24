@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Train, Search, Heart, Map } from 'lucide-react';
+import { Train, Search, Heart, Ticket, Route, Building2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/utils/cn';
 import { useFavoritesStore } from '@/store/favorites';
@@ -13,6 +13,9 @@ export function Navbar() {
 
   const links = [
     { href: '/', label: 'Search', icon: Search, exact: true },
+    { href: '/pnr', label: 'PNR', icon: Ticket, exact: false },
+    { href: '/planner', label: 'Planner', icon: Route, exact: false },
+    { href: '/stations', label: 'Stations', icon: Building2, exact: false },
     { href: '/favorites', label: 'Favorites', icon: Heart, exact: false },
   ];
 
@@ -26,7 +29,7 @@ export function Navbar() {
           </div>
           <div>
             <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
-              RailRadar<span className="text-rail-blue">24</span>
+              Rail<span className="text-rail-blue">Gaadi</span>
             </span>
             <span className="hidden sm:inline-block ml-2 rounded-full bg-rail-blue/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rail-blue">
               LIVE

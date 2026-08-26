@@ -122,3 +122,55 @@ export function searchLocalTrains(query: string): TrainEntry[] {
       t.toCode.toLowerCase().includes(q)
   ).slice(0, 15);
 }
+
+export interface LocalStation {
+  code: string;
+  name: string;
+}
+
+const EXTRA_STATIONS: LocalStation[] = [
+  { code: 'NDLS', name: 'New Delhi' },
+  { code: 'NZM', name: 'Hazrat Nizamuddin' },
+  { code: 'DLI', name: 'Old Delhi' },
+  { code: 'MMCT', name: 'Mumbai Central' },
+  { code: 'CSMT', name: 'Chhatrapati Shivaji Maharaj Terminus' },
+  { code: 'LTT', name: 'Lokmanya Tilak Terminus' },
+  { code: 'BCT', name: 'Mumbai Central' },
+  { code: 'HWH', name: 'Howrah Junction' },
+  { code: 'SDAH', name: 'Sealdah' },
+  { code: 'MAS', name: 'Chennai Central' },
+  { code: 'SBC', name: 'KSR Bengaluru City' },
+  { code: 'HYB', name: 'Hyderabad Deccan' },
+  { code: 'SC', name: 'Secunderabad Junction' },
+  { code: 'ADI', name: 'Ahmedabad Junction' },
+  { code: 'JP', name: 'Jaipur Junction' },
+  { code: 'PNBE', name: 'Patna Junction' },
+  { code: 'LKO', name: 'Lucknow NR' },
+  { code: 'CNB', name: 'Kanpur Central' },
+  { code: 'BPL', name: 'Bhopal Junction' },
+  { code: 'NGP', name: 'Nagpur Junction' },
+  { code: 'PUNE', name: 'Pune Junction' },
+  { code: 'TVC', name: 'Thiruvananthapuram Central' },
+  { code: 'ERS', name: 'Ernakulam Junction' },
+  { code: 'GHY', name: 'Guwahati' },
+  { code: 'JAT', name: 'Jammu Tawi' },
+];
+
+export function getLocalStations(): LocalStation[] {
+  const map = new Map<string, LocalStation>();
+  for (const s of EXTRA_STATIONS) map.set(s.code, s);
+  for (const t of TRAINS_DB) {
+    if (!map.has(t.fromCode)) map.set(t.fromCode, { code: t.fromCode, name: t.from });
+    if (!map.has(t.toCode)) map.set(t.toCode, { code: t.toCode, name: t.to });
+  }
+  return Array.from(map.values());
+}
+
+export function searchLocalStations(query: string): LocalStation[] {
+  const all = getLocalStations();
+  const q = query.trim().toLowerCase();
+  if (!q) return all.slice(0, 12);
+  return all
+    .filter((s) => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+    .slice(0, 12);
+}

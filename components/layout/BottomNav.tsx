@@ -3,13 +3,14 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Search, Heart, Train } from 'lucide-react';
+import { Home, Ticket, Route, Heart } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { useFavoritesStore } from '@/store/favorites';
 
 const NAV_ITEMS = [
   { href: '/', label: 'Home', icon: Home },
-  { href: '/?search=1', label: 'Search', icon: Search },
+  { href: '/pnr', label: 'PNR', icon: Ticket },
+  { href: '/planner', label: 'Planner', icon: Route },
   { href: '/favorites', label: 'Favorites', icon: Heart },
 ];
 

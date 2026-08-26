@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Share2, Check, MapPin, CloudSun, Mountain, AlertCircle, TrendingUp, Train, Bell } from 'lucide-react';
+import { ArrowLeft, Share2, Check, MapPin, CloudSun, Mountain, AlertCircle, TrendingUp, Train, Bell, IndianRupee, LayoutGrid } from 'lucide-react';
 import { useLiveJourney } from '@/hooks/useLiveJourney';
 import { JourneyCard } from '@/components/journey/JourneyCard';
 import { Timeline } from '@/components/journey/Timeline';
@@ -15,6 +15,8 @@ import { TerrainPanel } from '@/features/terrain/TerrainPanel';
 import { CoachComposition } from '@/features/coach/CoachComposition';
 import { PlatformFinder } from '@/features/platform/PlatformFinder';
 import { DelayAlerts } from '@/features/alerts/DelayAlerts';
+import { FareCalculator } from '@/features/fare/FareCalculator';
+import { SeatAvailabilityPanel } from '@/features/seats/SeatAvailability';
 import { JourneyReportCard } from '@/features/share/JourneyReportCard';
 import { MobileJourneySummary } from '@/components/layout/MobileJourneySummary';
 import { FavoriteButton } from '@/features/favorites/FavoriteButton';
@@ -36,6 +38,8 @@ const TABS = [
   { id: 'analytics', label: 'Analytics', icon: Mountain },
   { id: 'history', label: 'Run Stats', icon: TrendingUp },
   { id: 'coach', label: 'Coach', icon: Train },
+  { id: 'fare', label: 'Fares', icon: IndianRupee },
+  { id: 'seats', label: 'Seats', icon: LayoutGrid },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -74,7 +78,7 @@ export default function TrainJourneyPage({ params }: { params: { id: string } })
     const shareUrl = window.location.href;
     if (typeof navigator.share === 'function') {
       navigator
-        .share({ title: `RailRadar24 – ${journey?.name || `Train #${trainId}`}`, url: shareUrl })
+        .share({ title: `RailGaadi – ${journey?.name || `Train #${trainId}`}`, url: shareUrl })
         .catch(() => {
           navigator.clipboard.writeText(shareUrl);
           setCopied(true);
@@ -259,6 +263,24 @@ export default function TrainJourneyPage({ params }: { params: { id: string } })
           )}
           {activeTab === 'coach' && (
             <CoachComposition trainId={journey.trainId} trainName={journey.name} />
+          )}
+          {activeTab === 'fare' && (
+            <FareCalculator
+              trainNumber={journey.number}
+              fromCode={journey.origin.code}
+              fromName={journey.origin.name}
+              toCode={journey.destination.code}
+              toName={journey.destination.name}
+            />
+          )}
+          {activeTab === 'seats' && (
+            <SeatAvailabilityPanel
+              trainNumber={journey.number}
+              fromCode={journey.origin.code}
+              fromName={journey.origin.name}
+              toCode={journey.destination.code}
+              toName={journey.destination.name}
+            />
           )}
 
           {/* Platform Finder + Report Card — shown on map and history tabs */}

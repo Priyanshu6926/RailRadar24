@@ -108,3 +108,18 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(156, 163, 175, 0.5);
 }
+
+@keyframes fidsIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fids-row {
+  animation: fidsIn 0.35s ease-out both;
+}

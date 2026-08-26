@@ -67,8 +67,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   },
 };
 
-export default function TrainJourneyPage({ params }: { params: { id: string } }) {
-  const trainId = params.id;
+import { useParams } from 'next/navigation';
+
+export default function TrainJourneyPage({ params }: { params?: { id: string } }) {
+  const routeParams = useParams();
+  const trainId = ((routeParams?.id as string) || params?.id || '').toString();
   const { data: journey, isLoading, isError, error, refetch, isRefetching } = useLiveJourney(trainId);
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('map');

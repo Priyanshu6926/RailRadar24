@@ -55,9 +55,10 @@ function classifyCoach(label: string): Coach['type'] {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  const trainId = params.id;
+  const resolvedParams = await Promise.resolve(params);
+  const trainId = resolvedParams?.id;
   const cacheKey = `coach:${trainId}`;
 
   const cached = getCached<CoachCompositionResponse>(cacheKey);

@@ -6,9 +6,10 @@ import { StationBoardData } from '@/types/train';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> | { code: string } }
 ) {
-  const code = params.code.trim().toUpperCase();
+  const resolvedParams = await Promise.resolve(params);
+  const code = (resolvedParams?.code || '').trim().toUpperCase();
   if (!code) {
     return NextResponse.json<ApiResponse<never>>(
       { success: false, error: 'Station code is required', timestamp: new Date().toISOString() },

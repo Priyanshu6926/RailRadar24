@@ -14,8 +14,12 @@ const MapView = dynamic(() => import('@/features/maps/MapView'), {
   loading: () => <Skeleton className="h-[400px] w-full rounded-3xl" />,
 });
 
-export default function ShareJourneyPage({ params }: { params: { id: string } }) {
-  const { data: journey, isLoading } = useLiveJourney(params.id);
+import { useParams } from 'next/navigation';
+
+export default function ShareJourneyPage({ params }: { params?: { id: string } }) {
+  const routeParams = useParams();
+  const trainId = ((routeParams?.id as string) || params?.id || '').toString();
+  const { data: journey, isLoading } = useLiveJourney(trainId);
 
   if (isLoading || !journey) {
     return (

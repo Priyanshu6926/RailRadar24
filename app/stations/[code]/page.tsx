@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { ArrowLeft, Building2 } from 'lucide-react';
 import { StationLiveBoardView } from '@/features/stations/StationLiveBoardView';
 
-export default function StationDetailPage({ params }: { params: { code: string } }) {
-  const stationCode = params.code.toUpperCase();
+import { useParams } from 'next/navigation';
+
+export default function StationDetailPage({ params }: { params?: { code: string } }) {
+  const routeParams = useParams();
+  const stationCode = ((routeParams?.code as string) || params?.code || 'NDLS').toString().toUpperCase();
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto py-2">

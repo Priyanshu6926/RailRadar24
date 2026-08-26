@@ -6,9 +6,10 @@ import { StationBoardData } from '@/types/train';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> | { code: string } }
 ) {
-  const code = params.code.trim().toUpperCase();
+  const resolvedParams = await Promise.resolve(params);
+  const code = (resolvedParams?.code || '').trim().toUpperCase();
   const { searchParams } = new URL(request.url);
   const hours = parseInt(searchParams.get('hours') || '4', 10);
 

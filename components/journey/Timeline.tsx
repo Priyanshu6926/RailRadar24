@@ -49,14 +49,13 @@ function PassThroughDropdown({ stations }: { stations: Station[] }) {
         <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800 max-w-[40px]" />
         {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         <span>{stations.length} passing station{stations.length > 1 ? 's' : ''}</span>
-        {open ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800 max-w-[40px]" />
       </button>
 
       {open && (
         <div className="space-y-0 py-1 border-l-2 border-dashed border-slate-200 dark:border-slate-800 ml-3 pl-3">
           {stations.map((st, i) => (
-            <div key={st.code + i} className="flex items-center justify-between py-1 gap-2">
+            <div key={`${st.code}-${i}`} className="flex items-center justify-between py-1 gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="h-1.5 w-1.5 rounded-full bg-slate-300 dark:bg-slate-700 flex-shrink-0" />
                 <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
@@ -107,7 +106,7 @@ export function Timeline({ stations, currentStationCode, className }: TimelinePr
             const delayInfo = formatDelay(st.delayMinutes);
 
             return (
-              <React.Fragment key={st.code + groupIdx}>
+              <React.Fragment key={`${st.code}-${groupIdx}`}>
                 {/* ─── Halt Station Entry ─── */}
                 <div className="relative flex items-start justify-between gap-4">
                   {/* Timeline Dot */}

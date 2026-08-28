@@ -48,6 +48,9 @@ export function FareCalculator({ trainNumber, fromCode, fromName, toCode, toName
     (f) => f.classCode === selectedClass
   ) || data?.fares[0];
 
+  const tatkalCharge = selectedQuota === 'TQ' && currentFare ? Math.round(currentFare.baseFare * 0.3) : 0;
+  const totalAmount = currentFare ? currentFare.totalFare + tatkalCharge : 0;
+
   return (
     <div className="space-y-6">
       {/* Title & Quota Switcher */}
@@ -97,30 +100,34 @@ export function FareCalculator({ trainNumber, fromCode, fromName, toCode, toName
         <div className="space-y-6">
           {/* Class Selectors Horizontal Bar */}
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
-            {data.fares.map((f) => (
-              <button
-                key={f.classCode}
-                onClick={() => setSelectedClass(f.classCode)}
-                className={cn(
-                  'flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center',
-                  selectedClass === f.classCode
-                    ? 'border-rail-blue bg-rail-blue/10 ring-2 ring-rail-blue/20'
-                    : 'border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800'
-                )}
-              >
-                <span className="font-mono text-sm font-extrabold text-slate-900 dark:text-white">
-                  {f.classCode}
-                </span>
-                <span className="text-[10px] text-slate-500 truncate w-full">{f.className}</span>
-                <span className="font-mono text-xs font-bold text-rail-blue mt-1">₹{f.totalFare}</span>
-              </button>
-            ))}
+            {data.fares.map((f) => {
+              const fTatkal = selectedQuota === 'TQ' ? Math.round(f.baseFare * 0.3) : 0;
+              const fTotal = f.totalFare + fTatkal;
+              return (
+                <button
+                  key={f.classCode}
+                  onClick={() => setSelectedClass(f.classCode)}
+                  className={cn(
+                    'flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center',
+                    selectedClass === f.classCode
+                      ? 'border-rail-blue bg-rail-blue/10 ring-2 ring-rail-blue/20'
+                      : 'border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  )}
+                >
+                  <span className="font-mono text-sm font-extrabold text-slate-900 dark:text-white">
+                    {f.classCode}
+                  </span>
+                  <span className="text-[10px] text-slate-500 truncate w-full">{f.className}</span>
+                  <span className="font-mono text-xs font-bold text-rail-blue mt-1">₹{fTotal}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Itemized Fare Card */}
           {currentFare && (
             <motion.div
-              key={currentFare.classCode}
+              key={currentFare.classCode + selectedQuota}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 p-6 space-y-4"
@@ -133,7 +140,7 @@ export function FareCalculator({ trainNumber, fromCode, fromName, toCode, toName
                 <div className="text-right">
                   <span className="text-[10px] font-bold text-slate-400 block">Total Amount</span>
                   <span className="text-2xl font-extrabold text-slate-900 dark:text-white">
-                    ₹{currentFare.totalFare}
+                    ₹{totalAmount}
                   </span>
                 </div>
               </div>

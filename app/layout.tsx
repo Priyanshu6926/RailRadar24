@@ -8,19 +8,19 @@ import { BottomNav } from '@/components/layout/BottomNav';
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'RailGaadi — Indian Railways Super App',
+  title: 'RailRadar 24 — Live Indian Railways Tracking & Intelligence',
   description:
     'Live train tracking, PNR confirmation prediction, fares, 14-day seat calendar, station FIDS boards, and journey planning — built on RailRadar APIs.',
-  keywords: ['RailGaadi', 'PNR status', 'live train status', 'Indian Railways', 'seat availability', 'train fare', 'station board'],
-  authors: [{ name: 'RailGaadi' }],
+  keywords: ['RailRadar 24', 'RailRadar', 'PNR status', 'live train status', 'Indian Railways', 'seat availability', 'train fare', 'station board'],
+  authors: [{ name: 'RailRadar 24' }],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'RailGaadi',
+    title: 'RailRadar 24',
   },
   openGraph: {
-    title: 'RailGaadi — Indian Railways Super App',
+    title: 'RailRadar 24 — Live Indian Railways Tracking & Intelligence',
     description: 'Real-time tracking, PNR prediction, fares, seats, and live station boards.',
     type: 'website',
     locale: 'en_IN',

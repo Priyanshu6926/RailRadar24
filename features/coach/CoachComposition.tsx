@@ -150,7 +150,7 @@ export function CoachComposition({ trainId, trainName }: CoachCompositionProps) 
               style={{ scrollbarWidth: 'thin' }}
             >
               {data.coaches.map((coach, i) => (
-                <CoachBox key={coach.label + i} coach={coach} index={i} />
+                <CoachBox key={`${coach.position || i}-${coach.label}-${i}`} coach={coach} index={i} />
               ))}
             </div>
           </div>

@@ -128,7 +128,7 @@ export default function HomePage() {
     router.push(`/stations/${stationInput.trim().toUpperCase()}`);
   };
 
-  const showDropdown = isSearchOpen && (inputValue || debouncedQuery);
+  const showDropdown = isSearchOpen && Boolean(inputValue.trim());
 
   return (
     <div className="space-y-12 py-4">
@@ -591,12 +591,12 @@ export default function HomePage() {
               Built with Modern Full-Stack Web Architecture
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xl">
-              Next.js 14 App Router · TypeScript · MapLibre GL Vector Graphics · TanStack Query Caching · LRU In-Memory Cache · Framer Motion
+              Next.js 16 App Router · TypeScript · MapLibre GL Vector Graphics · TanStack Query Caching · LRU In-Memory Cache · Framer Motion
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {['Next.js 14', 'TypeScript', 'MapLibre GL', 'TanStack Query', 'RailRadar API', 'TailwindCSS'].map((tech) => (
+            {['Next.js 16', 'TypeScript', 'MapLibre GL', 'TanStack Query', 'RailRadar API', 'TailwindCSS'].map((tech) => (
               <span
                 key={tech}
                 className="rounded-xl bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-mono font-bold text-slate-700 dark:text-slate-300"

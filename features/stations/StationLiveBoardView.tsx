@@ -13,9 +13,30 @@ import {
   Building2,
   Radio,
   Filter,
+  Users,
 } from 'lucide-react';
 import { StationBoardData, StationBoardTrainItem } from '@/types/train';
 import { cn } from '@/utils/cn';
+
+// ── Quick crowd score for station board ──────────────────────────────────────
+function boardCrowdBadge(train: StationBoardTrainItem): { dot: string; label: string; text: string } {
+  const hour = new Date().getHours();
+  const isPeak = (hour >= 6 && hour <= 10) || (hour >= 17 && hour <= 21);
+  const name = (train.trainName || '').toLowerCase();
+  const isAC = name.includes('rajdhani') || name.includes('shatabdi') || name.includes('vande bharat') || name.includes('duronto');
+  const isGeneral = name.includes('passenger') || name.includes('local') || name.includes('memu') || name.includes('demu');
+
+  let score = isPeak ? 55 : 30;
+  if (isAC) score -= 20;
+  if (isGeneral) score += 25;
+  if (train.delayMinutes > 30) score += 15;
+  score = Math.min(100, Math.max(0, score));
+
+  if (score < 35) return { dot: 'bg-emerald-500', label: 'Low', text: 'text-emerald-400' };
+  if (score < 60) return { dot: 'bg-amber-400', label: 'Mod.', text: 'text-amber-400' };
+  if (score < 80) return { dot: 'bg-orange-500', label: 'High', text: 'text-orange-400' };
+  return { dot: 'bg-rose-500', label: 'V.High', text: 'text-rose-400' };
+}
 
 interface StationLiveBoardProps {
   stationCode: string;
@@ -129,11 +150,12 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
         {/* Table Header */}
         <div className="grid grid-cols-12 gap-2 px-6 py-3.5 bg-slate-900 border-b border-slate-800 text-[11px] font-mono font-bold uppercase tracking-wider text-amber-400">
           <div className="col-span-2 sm:col-span-1">Train</div>
-          <div className="col-span-4 sm:col-span-4">Train Name</div>
+          <div className="col-span-3 sm:col-span-3">Train Name</div>
           <div className="col-span-3 sm:col-span-3">Destination</div>
           <div className="col-span-1 sm:col-span-1 text-center">PF</div>
           <div className="col-span-2 sm:col-span-1 text-right">Time</div>
-          <div className="col-span-12 sm:col-span-2 text-right">Status</div>
+          <div className="hidden sm:block sm:col-span-2 text-center">Crowd</div>
+          <div className="col-span-1 sm:col-span-1 text-right">Status</div>
         </div>
 
         {/* Train Rows */}
@@ -148,7 +170,7 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
 
               return (
                 <motion.div
-                  key={train.trainNumber + idx}
+                  key={`${train.trainNumber}-${idx}`}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: idx * 0.03 }}
@@ -165,13 +187,13 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
                   </div>
 
                   {/* Train Name */}
-                  <div className="col-span-4 sm:col-span-4 font-sans font-bold text-slate-100 truncate">
+                  <div className="col-span-3 sm:col-span-3 font-sans font-bold text-slate-100 truncate">
                     {train.trainName}
                   </div>
 
                   {/* Destination */}
                   <div className="col-span-3 sm:col-span-3 font-sans text-slate-300 truncate">
-                    {train.destination.name} ({train.destination.code})
+                    {train.destination?.name || train.destination?.code || '—'} ({train.destination?.code || '—'})
                   </div>
 
                   {/* Platform */}
@@ -186,12 +208,20 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
                     {train.scheduledDeparture || train.scheduledArrival}
                   </div>
 
+                  {/* Crowd */}
+                  {(() => { const c = boardCrowdBadge(train); return (
+                    <div className="hidden sm:flex sm:col-span-2 items-center justify-center gap-1.5">
+                      <span className={cn('h-2 w-2 rounded-full flex-shrink-0', c.dot)} />
+                      <span className={cn('text-[10px] font-bold', c.text)}>{c.label}</span>
+                    </div>
+                  ); })()}
+
                   {/* Status / Delay */}
-                  <div className="col-span-12 sm:col-span-2 text-right">
+                  <div className="col-span-1 sm:col-span-1 text-right">
                     {isDelayed ? (
                       <span className="inline-flex items-center gap-1 text-rose-400 font-bold text-[11px] bg-rose-500/10 px-2 py-0.5 rounded-md">
                         <AlertTriangle className="h-3 w-3" />
-                        <span>+{train.delayMinutes}m Late</span>
+                        <span>+{train.delayMinutes}m</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-emerald-400 font-bold text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded-md">

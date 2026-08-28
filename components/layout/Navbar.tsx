@@ -29,7 +29,7 @@ export function Navbar() {
           </div>
           <div>
             <span className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-white">
-              Rail<span className="text-rail-blue">Gaadi</span>
+              Rail<span className="text-rail-blue">Radar</span> 24
             </span>
             <span className="hidden sm:inline-block ml-2 rounded-full bg-rail-blue/10 px-2 py-0.5 font-mono text-[10px] font-bold text-rail-blue">
               LIVE

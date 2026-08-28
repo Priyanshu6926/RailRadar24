@@ -89,19 +89,42 @@ export function JourneyCard({
 
         {/* Speed & Motion */}
         <div className="flex items-center gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800/60 dark:bg-slate-900/50">
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-rail-blue/10 text-rail-blue">
-            <Gauge className="h-5 w-5 animate-pulse" />
+          <div className={cn(
+            'flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl',
+            journey.currentLocation.isMoving
+              ? 'bg-rail-blue/10 text-rail-blue'
+              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+          )}>
+            <Gauge className={cn('h-5 w-5', journey.currentLocation.isMoving && 'animate-pulse')} />
           </div>
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Live Speed
             </span>
-            <div className="flex items-baseline gap-1">
-              <span className="font-mono text-xl font-bold text-slate-900 dark:text-white">
-                {journey.speedKmh}
-              </span>
-              <span className="text-xs font-semibold text-slate-500">km/h</span>
-            </div>
+            {journey.currentLocation.isMoving ? (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="font-mono text-xl font-bold text-slate-900 dark:text-white">
+                    {journey.speedKmh}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-500">km/h</span>
+                </div>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Moving</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold text-base text-amber-600 dark:text-amber-400 leading-tight">
+                  At Station
+                </p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Halted</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

@@ -46,7 +46,7 @@ export function AnalyticsDashboard({ journey }: AnalyticsDashboardProps) {
       try {
         const res = await fetch(`/api/analytics/${journey.trainId}`);
         const json = await res.json();
-        if (json.data) setAnalytics(json.data);
+        if (json.success && json.data) setAnalytics(json.data);
       } catch (e) {
         console.warn('Failed to load analytics', e);
       } finally {

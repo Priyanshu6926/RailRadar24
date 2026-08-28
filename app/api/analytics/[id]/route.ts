@@ -17,10 +17,9 @@ export interface AnalyticsResponse {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
-  const trainId = resolvedParams?.id;
+  const { id: trainId } = await params;
   const cacheKey = `analytics:${trainId}`;
 
   const cached = getCached<AnalyticsResponse>(cacheKey);
@@ -42,7 +41,7 @@ export async function GET(
       );
     }
 
-    const routeCoords = journey.routeGeometry || journey.stations.map((s) => [s.lng, s.lat]);
+    const routeCoords = (journey.routeGeometry || journey.stations.map((s) => [s.lng, s.lat])) as [number, number][];
     const elevationProfile = await getElevationProfile(routeCoords, journey.totalDistanceKm);
 
     const highestElevationM = Math.max(...elevationProfile.map((e) => e.elevationM), 520);

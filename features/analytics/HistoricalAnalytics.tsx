@@ -211,7 +211,7 @@ export function HistoricalAnalytics({ trainId }: HistoricalAnalyticsProps) {
             <span className="w-14 text-right">Δ Delay</span>
           </div>
           {data.sections.map((section, i) => (
-            <SectionBar key={section.fromCode + section.toCode} section={section} maxDelay={maxDelay} index={i} />
+            <SectionBar key={`${section.fromCode}-${section.toCode}-${i}`} section={section} maxDelay={maxDelay} index={i} />
           ))}
           <div className="flex items-center gap-4 text-[10px] text-slate-400 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" /> Delay gained</span>

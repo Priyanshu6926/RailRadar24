@@ -9,6 +9,7 @@ import {
   TrainFareData,
   SeatAvailabilityData,
   TrainsBetweenData,
+  PlannerTrain,
   StationBoardData,
 } from '@/types/train';
 import { env } from '@/config/env';
@@ -247,12 +248,60 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
     }
   }
 
+  // ── Dynamic live-speed computation ────────────────────────────────────────
+  // Strategy: derive speed from the actual distance / time window between the
+  // last two "passed" stations rather than the static timetable avgSpeed.
+  const isMovingNow = raw.status === 'running' && !currentStation;
+  let liveSpeedKmh = 0;
+
+  if (isMovingNow) {
+    const passedStops = [...relevantStops].filter((s) => {
+      const rawSt = (s.status || '').toLowerCase();
+      return rawSt === 'departed' || rawSt === 'passed' || rawSt === 'arrived';
+    });
+
+    if (passedStops.length >= 2) {
+      const s1 = passedStops[passedStops.length - 2];
+      const s2 = passedStops[passedStops.length - 1];
+      const distDeltaKm = Math.abs((s2.distance || 0) - (s1.distance || 0));
+
+      // Parse HH:MM times into fractional hours
+      const parseHHMM = (t?: string): number | null => {
+        if (!t) return null;
+        const parts = t.includes('T')
+          ? new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }).split(':')
+          : t.split(':');
+        if (parts.length < 2) return null;
+        return parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
+      };
+
+      const t1 = parseHHMM(s1.actualDeparture || s1.scheduledDeparture || s1.departure);
+      const t2 = parseHHMM(s2.actualArrival || s2.scheduledArrival || s2.arrival);
+
+      if (t1 !== null && t2 !== null && distDeltaKm > 0) {
+        let timeDeltaHrs = t2 - t1;
+        if (timeDeltaHrs <= 0) timeDeltaHrs += 24; // midnight crossing
+        if (timeDeltaHrs > 0 && timeDeltaHrs < 12) {
+          const computed = Math.round(distDeltaKm / timeDeltaHrs);
+          // Sanity-cap: Indian trains don't exceed 200 km/h
+          liveSpeedKmh = Math.min(200, Math.max(0, computed));
+        }
+      }
+    }
+
+    // Fallback to timetable avgSpeed when computation is impossible
+    if (liveSpeedKmh === 0) {
+      liveSpeedKmh = Math.round(train?.avgSpeed || 80);
+    }
+  }
+  // If train is at a station (currentStation exists) → speed is 0
+
   const currentLocation: LiveJourney['currentLocation'] = {
     lat: trainLat,
     lng: trainLng,
     heading: 45,
-    speedKmh: Math.round(train?.avgSpeed || 80),
-    isMoving: raw.status === 'running',
+    speedKmh: liveSpeedKmh,
+    isMoving: isMovingNow,
   };
 
   const nextHaltStation = nextStation;
@@ -466,10 +515,6 @@ export async function getLiveJourney(trainNumber: string): Promise<LiveJourney |
 
     if (!liveRes.ok) {
       if (liveRes.status === 404) return null;
-      const msg = extractErrorMessage(json);
-      if (liveRes.status === 429 || json?.error?.code === 'TOO_MANY_REQUESTS') {
-        return generateFallbackJourney(trainNumber);
-      }
       return generateFallbackJourney(trainNumber);
     }
 
@@ -836,6 +881,31 @@ export async function getSeatAvailability(
   };
 }
 
+function extractStationEndpoint(raw: any, fallbackCode: string = ''): { code: string; name: string } {
+  if (!raw) {
+    return { code: fallbackCode, name: fallbackCode };
+  }
+  if (typeof raw === 'string') {
+    return { code: raw, name: raw };
+  }
+  if (typeof raw === 'object') {
+    const code = typeof raw.code === 'string'
+      ? raw.code
+      : typeof raw.stationCode === 'string'
+      ? raw.stationCode
+      : fallbackCode;
+    const name = typeof raw.name === 'string'
+      ? raw.name
+      : typeof raw.stationName === 'string'
+      ? raw.stationName
+      : typeof raw.cityName === 'string'
+      ? raw.cityName
+      : code || fallbackCode;
+    return { code, name };
+  }
+  return { code: fallbackCode, name: fallbackCode };
+}
+
 // ─── 6. Trains Between Stations (Journey Planner) ──────────────────────────
 
 export async function getTrainsBetween(fromCode: string, toCode: string): Promise<TrainsBetweenData> {
@@ -847,7 +917,81 @@ export async function getTrainsBetween(fromCode: string, toCode: string): Promis
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
-        return json.data;
+        const rawList = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data.trains)
+          ? json.data.trains
+          : [];
+
+        if (rawList.length > 0) {
+          const allStations = getLocalStations();
+          const fromObj = allStations.find((s) => s.code === from) || { code: from, name: from };
+          const toObj = allStations.find((s) => s.code === to) || { code: to, name: to };
+
+          const normalisedTrains: PlannerTrain[] = rawList.map((item: any, idx: number) => {
+            const fromRaw = item.from || item.fromStation || item.source || item.sourceStation || item.origin;
+            const fromEp = extractStationEndpoint(fromRaw, from);
+            const departureTime = typeof fromRaw === 'object' && typeof fromRaw.departure === 'string'
+              ? fromRaw.departure
+              : item.fromStation?.departureTime || item.departureTime || item.depTime || item.std || `${(6 + idx * 3) % 24}:30`.padStart(5, '0');
+
+            const toRaw = item.to || item.toStation || item.destination || item.destStation || item.dest;
+            const toEp = extractStationEndpoint(toRaw, to);
+            const arrivalTime = typeof toRaw === 'object' && typeof toRaw.arrival === 'string'
+              ? toRaw.arrival
+              : item.toStation?.arrivalTime || item.arrivalTime || item.arrTime || item.sta || `${(14 + idx * 3) % 24}:45`.padStart(5, '0');
+
+            const trainNumber = typeof item.trainNumber === 'string' ? item.trainNumber : typeof item.number === 'string' ? item.number : String(item.trainNumber || item.number || '12000');
+            const trainName = typeof item.trainName === 'string' ? item.trainName : typeof item.name === 'string' ? item.name : 'Express Service';
+
+            const runningDays = Array.isArray(item.runningDays)
+              ? item.runningDays
+              : Array.isArray(item.runsOn)
+              ? item.runsOn
+              : Array.isArray(item.runDays)
+              ? item.runDays
+              : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            const classes = Array.isArray(item.classes)
+              ? item.classes
+              : Array.isArray(item.availableClasses)
+              ? item.availableClasses
+              : ['1A', '2A', '3A', 'SL'];
+
+            const trainType = item.trainType || item.type || (trainName.includes('Rajdhani') ? 'Rajdhani' : trainName.includes('Vande') ? 'Vande Bharat' : 'Superfast');
+
+            return {
+              trainNumber,
+              trainName,
+              fromStation: {
+                code: fromEp.code,
+                name: fromEp.name,
+                departureTime,
+              },
+              toStation: {
+                code: toEp.code,
+                name: toEp.name,
+                arrivalTime,
+              },
+              duration: typeof item.duration === 'string' ? item.duration : '15h 30m',
+              distanceKm: typeof item.distanceKm === 'number' ? item.distanceKm : typeof item.distance === 'number' ? item.distance : 1384,
+              runningDays,
+              classes,
+              trainType,
+              hasPantry: Boolean(item.hasPantry ?? item.pantry ?? true),
+            };
+          });
+
+          const topFrom = extractStationEndpoint(json.data.fromStation || json.data.from || fromObj, from);
+          const topTo = extractStationEndpoint(json.data.toStation || json.data.to || toObj, to);
+
+          return {
+            fromStation: { code: topFrom.code, name: topFrom.name },
+            toStation: { code: topTo.code, name: topTo.name },
+            totalTrains: normalisedTrains.length,
+            trains: normalisedTrains,
+          };
+        }
       }
     }
   } catch {
@@ -898,20 +1042,57 @@ export async function getTrainsBetween(fromCode: string, toCode: string): Promis
 
 export async function getStationBoard(stationCode: string): Promise<StationBoardData> {
   const code = stationCode.trim().toUpperCase();
+  const allStations = getLocalStations();
+  const stInfo = allStations.find((s) => s.code === code) || { code, name: `${code} Junction` };
+
   try {
     const res = await rrFetch(`${RR_BASE}/stations/${code}/trains`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
-        return json.data;
+        const rawList = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data.trains)
+          ? json.data.trains
+          : [];
+
+        if (rawList.length > 0) {
+          const normalisedTrains = rawList.map((item: any, idx: number) => {
+            const originRaw = item.origin || item.fromStation || item.sourceStation || item.source || item.from;
+            const originEp = extractStationEndpoint(originRaw, 'NDLS');
+
+            const destRaw = item.destination || item.toStation || item.destStation || item.destinationStation || item.to;
+            const destEp = extractStationEndpoint(destRaw, 'MMCT');
+
+            return {
+              trainNumber: typeof item.trainNumber === 'string' ? item.trainNumber : typeof item.number === 'string' ? item.number : '12000',
+              trainName: typeof item.trainName === 'string' ? item.trainName : typeof item.name === 'string' ? item.name : 'Express',
+              scheduledArrival: item.scheduledArrival || item.arrival || `${(8 + idx * 2) % 24}:15`.padStart(5, '0'),
+              scheduledDeparture: item.scheduledDeparture || item.departure || `${(8 + idx * 2) % 24}:25`.padStart(5, '0'),
+              actualArrival: item.actualArrival,
+              actualDeparture: item.actualDeparture,
+              delayMinutes: item.delayMinutes ?? item.delayArrival ?? item.delayDeparture ?? 0,
+              platform: item.platform ? String(item.platform) : `${(idx % 6) + 1}`,
+              origin: { code: originEp.code, name: originEp.name },
+              destination: { code: destEp.code, name: destEp.name },
+              status: (item.status || (item.delayMinutes > 0 ? 'delayed' : 'on_time')) as any,
+              trainType: item.trainType || item.type || (item.trainName?.includes('Rajdhani') ? 'Rajdhani' : 'Superfast'),
+            };
+          });
+
+          return {
+            stationCode: code,
+            stationName: json.data.stationName || stInfo.name,
+            zone: json.data.zone,
+            lastUpdated: json.data.lastUpdated || new Date().toISOString(),
+            trains: normalisedTrains,
+          };
+        }
       }
     }
   } catch {
     // fallback
   }
-
-  const allStations = getLocalStations();
-  const stInfo = allStations.find((s) => s.code === code) || { code, name: `${code} Junction` };
 
   const trains = TRAINS_DB.filter(
     (t) => t.fromCode === code || t.toCode === code

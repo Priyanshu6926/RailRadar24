@@ -19,15 +19,15 @@ export function ElevationProfile({ data, highestElevationM }: ElevationProfilePr
   // Build SVG path string
   const svgWidth = 600;
   const svgHeight = 160;
-  const pointsString = data
-    .map((d, i) => {
-      const x = (i / (data.length - 1)) * svgWidth;
-      const y = svgHeight - ((d.elevationM - minElev) / range) * (svgHeight - 40) - 20;
-      return `${x},${y}`;
-    })
-    .join(' ');
+  const coords = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * svgWidth;
+    const y = svgHeight - ((d.elevationM - minElev) / range) * (svgHeight - 40) - 20;
+    return { x, y };
+  });
 
-  const areaPath = `M 0,${svgHeight} L ${pointsString} L ${svgWidth},${svgHeight} Z`;
+  const pointsString = coords.map((c) => `${c.x},${c.y}`).join(' ');
+  const linePathCommands = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x},${c.y}`).join(' ');
+  const areaPath = `${linePathCommands} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
 
   return (
     <div className="glass-panel rounded-3xl p-6 shadow-glass space-y-4">

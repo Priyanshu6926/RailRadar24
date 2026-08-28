@@ -6,10 +6,10 @@ import { PNRStatusData } from '@/types/train';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ pnr: string }> | { pnr: string } }
+  { params }: { params: Promise<{ pnr: string }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
-  const pnr = (resolvedParams?.pnr || '').replace(/\D/g, '');
+  const { pnr: rawPnr } = await params;
+  const pnr = (rawPnr || '').replace(/\D/g, '');
   if (!pnr || pnr.length !== 10) {
     return NextResponse.json<ApiResponse<never>>(
       { success: false, error: 'Please provide a valid 10-digit PNR number', timestamp: new Date().toISOString() },

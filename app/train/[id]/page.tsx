@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Share2, Check, MapPin, CloudSun, Mountain, AlertCircle, TrendingUp, Train, Bell, IndianRupee, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Share2, Check, MapPin, CloudSun, Mountain, AlertCircle, TrendingUp, Train, Bell, IndianRupee, LayoutGrid, Users } from 'lucide-react';
 import { useLiveJourney } from '@/hooks/useLiveJourney';
 import { JourneyCard } from '@/components/journey/JourneyCard';
 import { Timeline } from '@/components/journey/Timeline';
@@ -19,6 +19,7 @@ import { FareCalculator } from '@/features/fare/FareCalculator';
 import { SeatAvailabilityPanel } from '@/features/seats/SeatAvailability';
 import { JourneyReportCard } from '@/features/share/JourneyReportCard';
 import { MobileJourneySummary } from '@/components/layout/MobileJourneySummary';
+import { TrainOccupancy } from '@/features/occupancy/TrainOccupancy';
 import { FavoriteButton } from '@/features/favorites/FavoriteButton';
 import { cn } from '@/utils/cn';
 import dynamic from 'next/dynamic';
@@ -38,6 +39,7 @@ const TABS = [
   { id: 'analytics', label: 'Analytics', icon: Mountain },
   { id: 'history', label: 'Run Stats', icon: TrendingUp },
   { id: 'coach', label: 'Coach', icon: Train },
+  { id: 'occupancy', label: 'Occupancy', icon: Users },
   { id: 'fare', label: 'Fares', icon: IndianRupee },
   { id: 'seats', label: 'Seats', icon: LayoutGrid },
 ] as const;
@@ -81,7 +83,7 @@ export default function TrainJourneyPage({ params }: { params?: { id: string } }
     const shareUrl = window.location.href;
     if (typeof navigator.share === 'function') {
       navigator
-        .share({ title: `RailGaadi – ${journey?.name || `Train #${trainId}`}`, url: shareUrl })
+        .share({ title: `RailRadar 24 – ${journey?.name || `Train #${trainId}`}`, url: shareUrl })
         .catch(() => {
           navigator.clipboard.writeText(shareUrl);
           setCopied(true);
@@ -266,6 +268,9 @@ export default function TrainJourneyPage({ params }: { params?: { id: string } }
           )}
           {activeTab === 'coach' && (
             <CoachComposition trainId={journey.trainId} trainName={journey.name} />
+          )}
+          {activeTab === 'occupancy' && (
+            <TrainOccupancy trainId={journey.trainId} trainName={journey.name} />
           )}
           {activeTab === 'fare' && (
             <FareCalculator

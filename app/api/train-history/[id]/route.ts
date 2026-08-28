@@ -77,10 +77,9 @@ function punctualityScore(delayMinutes: number): number {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> | { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
-  const trainId = resolvedParams?.id;
+  const { id: trainId } = await params;
   const cacheKey = `train-history:${trainId}`;
 
   const cached = getCached<TrainRunningAnalytics>(cacheKey);

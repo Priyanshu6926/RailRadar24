@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -31,19 +31,52 @@ const POPULAR_ROUTES = [
   { from: { code: 'MAS', name: 'Chennai Central' }, to: { code: 'SBC', name: 'KSR Bengaluru City' } },
 ];
 
+function getSafeStationName(st: any, fallback: string = ''): string {
+  if (!st) return fallback;
+  if (typeof st === 'string') return st;
+  if (typeof st.name === 'string') return st.name;
+  if (typeof st.cityName === 'string') return st.cityName;
+  if (typeof st.code === 'string') return st.code;
+  return fallback;
+}
+
+function getSafeStationCode(st: any, fallback: string = ''): string {
+  if (!st) return fallback;
+  if (typeof st === 'string') return st;
+  if (typeof st.code === 'string') return st.code;
+  if (typeof st.stationCode === 'string') return st.stationCode;
+  return fallback;
+}
+
+function getSafeTimeString(val: any, fallback: string = '--:--'): string {
+  if (!val) return fallback;
+  if (typeof val === 'string') return val;
+  if (typeof val.departure === 'string') return val.departure;
+  if (typeof val.arrival === 'string') return val.arrival;
+  if (typeof val.departureTime === 'string') return val.departureTime;
+  if (typeof val.arrivalTime === 'string') return val.arrivalTime;
+  return fallback;
+}
+
 export function JourneyPlannerView({ initialData }: JourneyPlannerViewProps) {
   const [fromStation, setFromStation] = useState<StationSearchResult>({
-    code: initialData?.fromStation.code || 'NDLS',
-    name: initialData?.fromStation.name || 'New Delhi',
+    code: getSafeStationCode(initialData?.fromStation, 'NDLS'),
+    name: getSafeStationName(initialData?.fromStation, 'New Delhi'),
   });
   const [toStation, setToStation] = useState<StationSearchResult>({
-    code: initialData?.toStation.code || 'MMCT',
-    name: initialData?.toStation.name || 'Mumbai Central',
+    code: getSafeStationCode(initialData?.toStation, 'MMCT'),
+    name: getSafeStationName(initialData?.toStation, 'Mumbai Central'),
   });
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TrainsBetweenData | null>(initialData || null);
   const [selectedType, setSelectedType] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (!initialData) {
+      handleSearch('NDLS', 'MMCT');
+    }
+  }, []);
 
   const handleSwap = () => {
     const temp = fromStation;
@@ -69,8 +102,8 @@ export function JourneyPlannerView({ initialData }: JourneyPlannerViewProps) {
 
   const filteredTrains = (data?.trains || []).filter((t) => {
     if (selectedType === 'ALL') return true;
-    if (selectedType === 'RAJчную' || selectedType === 'Rajdhani') return t.trainType === 'Rajdhani';
-    if (selectedType === 'VANDE' || selectedType === 'Vande Bharat') return t.trainType === 'Vande Bharat';
+    if (selectedType === 'Rajdhani') return t.trainType === 'Rajdhani';
+    if (selectedType === 'Vande Bharat') return t.trainType === 'Vande Bharat';
     return t.trainType.toLowerCase().includes(selectedType.toLowerCase());
   });
 
@@ -213,29 +246,29 @@ export function JourneyPlannerView({ initialData }: JourneyPlannerViewProps) {
             <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-4 py-1">
               <div className="text-left">
                 <span className="font-mono text-2xl font-extrabold text-slate-900 dark:text-white">
-                  {train.fromStation.departureTime}
+                  {getSafeTimeString(train.fromStation?.departureTime || (train as any).departureTime || (train as any).from?.departure)}
                 </span>
                 <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {train.fromStation.name} ({train.fromStation.code})
+                  {getSafeStationName(train.fromStation, fromStation.name)} ({getSafeStationCode(train.fromStation, fromStation.code)})
                 </span>
               </div>
 
               <div className="flex flex-col items-center justify-center text-center">
-                <span className="text-[11px] font-bold text-slate-400">{train.duration}</span>
+                <span className="text-[11px] font-bold text-slate-400">{typeof train.duration === 'string' ? train.duration : '15h 45m'}</span>
                 <div className="w-full flex items-center gap-2 py-1">
                   <div className="h-1.5 w-1.5 rounded-full bg-rail-blue" />
                   <div className="h-0.5 flex-1 bg-slate-300 dark:bg-slate-700" />
                   <ArrowRight className="h-3.5 w-3.5 text-slate-400" />
                 </div>
-                <span className="text-[10px] text-slate-400">{train.distanceKm} km</span>
+                <span className="text-[10px] text-slate-400">{typeof train.distanceKm === 'number' ? train.distanceKm : 0} km</span>
               </div>
 
               <div className="text-right">
                 <span className="font-mono text-2xl font-extrabold text-slate-900 dark:text-white">
-                  {train.toStation.arrivalTime}
+                  {getSafeTimeString(train.toStation?.arrivalTime || (train as any).arrivalTime || (train as any).to?.arrival)}
                 </span>
                 <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                  {train.toStation.name} ({train.toStation.code})
+                  {getSafeStationName(train.toStation, toStation.name)} ({getSafeStationCode(train.toStation, toStation.code)})
                 </span>
               </div>
             </div>
@@ -256,7 +289,7 @@ export function JourneyPlannerView({ initialData }: JourneyPlannerViewProps) {
 
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] font-bold text-slate-400 mr-1">Classes:</span>
-                {train.classes.map((cls) => (
+                {(train.classes || []).map((cls) => (
                   <span
                     key={cls}
                     className="rounded-lg bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300"

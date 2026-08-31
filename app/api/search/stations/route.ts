@@ -1,24 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { searchStations } from '@/lib/railradar';
-import { ApiResponse } from '@/types/api';
+import { getCached, setCached } from '@/lib/cache';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 import { StationSearchResult } from '@/types/train';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const q = searchParams.get('q') || '';
+  const q = (searchParams.get('q') || '').trim().slice(0, 40);
+
+  const cacheKey = `search:stations:${q.toLowerCase()}`;
+  const cached = getCached<StationSearchResult[]>(cacheKey);
+  if (cached) {
+    return jsonOk(cached, true, 200, 'live');
+  }
 
   try {
     const stations = await searchStations(q);
-    return NextResponse.json<ApiResponse<StationSearchResult[]>>({
-      success: true,
-      data: stations,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    setCached(cacheKey, stations, q ? 600 : 120);
+
+    return jsonOk(stations, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Station search failed', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/search/stations]', err);
+    return jsonFail('Station search failed', 500);
   }
 }
+

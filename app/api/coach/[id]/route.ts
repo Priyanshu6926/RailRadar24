@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getLiveJourney } from '@/lib/railradar';
+import { NextRequest } from 'next/server';
+import { getJourneyCached } from '@/lib/journey';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 
 export interface Coach {
   position: number;
@@ -58,36 +58,29 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: trainId } = await params;
-  const cacheKey = `coach:${trainId}`;
+  if (!trainId || !/^\d{4,5}$/.test(trainId.trim())) {
+    return jsonFail('Valid 4 or 5 digit train number is required', 400);
+  }
+
+  const cleanTrainId = trainId.trim();
+  const cacheKey = `coach:${cleanTrainId}`;
 
   const cached = getCached<CoachCompositionResponse>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<CoachCompositionResponse>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
-    const journey = await getLiveJourney(trainId);
+    const journey = await getJourneyCached(cleanTrainId);
     if (!journey) {
-      return NextResponse.json<ApiResponse<never>>(
-        { success: false, error: 'Train not found', timestamp: new Date().toISOString() },
-        { status: 404 }
-      );
+      return jsonFail('Train not found', 404);
     }
 
-    // coachPosition comes from RailRadar live API on each stop
-    // e.g. "ENG-EOG-B1-B2-...-PC-H1-AE1-A1-A2-EOG-HCP"
     const rawCoachPos =
       (journey as any)._rawCoachPosition ||
-      // Try to extract from raw stations if stored
       (journey.stations[0] as any)?._coachPosition ||
       '';
 
-    // If no raw position, build a default based on what we know about the train type
     const coaches: Coach[] = [];
 
     if (rawCoachPos) {
@@ -101,17 +94,14 @@ export async function GET(
           displayName: COACH_DISPLAY[type],
         });
       });
-    } else {
-      // Fallback: use coachPosition from the first station in the raw journey
-      // This will be populated once we store it in the railradar normaliser
-      coaches.push(
-        { position: 1, label: 'ENG', type: 'loco', displayName: 'Loco' },
-        { position: 2, label: 'EOG', type: 'eog', displayName: 'EOG/Guard' },
-      );
+    }
+
+    if (coaches.length < 4) {
+      return jsonFail('Coach composition unavailable for this train', 404);
     }
 
     const result: CoachCompositionResponse = {
-      trainId,
+      trainId: cleanTrainId,
       trainName: journey.name,
       totalCoaches: coaches.length,
       coaches,
@@ -120,16 +110,10 @@ export async function GET(
 
     setCached(cacheKey, result, 3600); // 1h cache
 
-    return NextResponse.json<ApiResponse<CoachCompositionResponse>>({
-      success: true,
-      data: result,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(result, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Coach composition fetch failed', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/coach]', err);
+    return jsonFail('Coach composition fetch failed', 500);
   }
 }
+

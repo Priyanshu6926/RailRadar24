@@ -6,7 +6,7 @@ import { ElevationPoint } from '@/lib/opentopography';
 
 interface ElevationProfileProps {
   data: ElevationPoint[];
-  highestElevationM: number;
+  highestElevationM: number | null;
 }
 
 export function ElevationProfile({ data, highestElevationM }: ElevationProfileProps) {
@@ -34,12 +34,14 @@ export function ElevationProfile({ data, highestElevationM }: ElevationProfilePr
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-lg text-slate-900 dark:text-white">
           <Mountain className="h-5 w-5 text-emerald-500" />
-          <span>OpenTopography Elevation Profile</span>
+          <span>Elevation Profile</span>
         </div>
-        <div className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-          <TrendingUp className="h-3.5 w-3.5" />
-          <span>Peak: {highestElevationM}m</span>
-        </div>
+        {highestElevationM !== null && (
+          <div className="flex items-center gap-1.5 rounded-xl bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            <TrendingUp className="h-3.5 w-3.5" />
+            <span>Peak: {highestElevationM}m</span>
+          </div>
+        )}
       </div>
 
       {/* SVG Terrain Area Chart */}

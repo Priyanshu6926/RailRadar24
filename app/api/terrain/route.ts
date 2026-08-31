@@ -1,40 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getTerrainFeatures, TerrainFeature } from '@/lib/overpass';
-import { getLiveJourney } from '@/lib/railradar';
+import { getJourneyCached } from '@/lib/journey';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trainId = searchParams.get('trainId');
 
-  if (!trainId) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: 'trainId is required', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
+  if (!trainId || !/^\d{4,5}$/.test(trainId.trim())) {
+    return jsonFail('Valid 4 or 5 digit trainId is required', 400);
   }
 
-  const cacheKey = `terrain:${trainId}`;
+  const cleanTrainId = trainId.trim();
+  const cacheKey = `terrain:${cleanTrainId}`;
+
   const cached = getCached<TerrainFeature[]>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<TerrainFeature[]>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
-    const journey = await getLiveJourney(trainId);
+    const journey = await getJourneyCached(cleanTrainId);
     if (!journey) {
-      return NextResponse.json<ApiResponse<TerrainFeature[]>>({
-        success: true,
-        data: [],
-        cached: false,
-        timestamp: new Date().toISOString(),
-      });
+      return jsonOk([], false, 200, 'live');
     }
 
     // Pass station coordinates (lat/lng + name) to the per-station Overpass querier
@@ -64,16 +53,10 @@ export async function GET(request: NextRequest) {
 
     setCached(cacheKey, features, 86400); // 24h cache
 
-    return NextResponse.json<ApiResponse<TerrainFeature[]>>({
-      success: true,
-      data: features,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(features, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Terrain fetch failed', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/terrain]', err);
+    return jsonFail('Terrain fetch failed', 500);
   }
 }
+

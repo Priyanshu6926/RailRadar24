@@ -1,49 +1,39 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getSeatAvailability } from '@/lib/railradar';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 import { SeatAvailabilityData } from '@/types/train';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trainNumber = searchParams.get('trainNumber');
-  const from = searchParams.get('from') || 'MMCT';
-  const to = searchParams.get('to') || 'NDLS';
-  const classCode = searchParams.get('class') || '3A';
-  const quota = searchParams.get('quota') || 'GN';
+  const from = (searchParams.get('from') || 'MMCT').toUpperCase().trim();
+  const to = (searchParams.get('to') || 'NDLS').toUpperCase().trim();
+  const classCode = (searchParams.get('class') || '3A').toUpperCase().trim();
+  const quota = (searchParams.get('quota') || 'GN').toUpperCase().trim();
 
-  if (!trainNumber) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: 'trainNumber is required', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
+  if (!trainNumber || !/^\d{4,5}$/.test(trainNumber.trim())) {
+    return jsonFail('Valid 4 or 5 digit trainNumber is required', 400);
   }
 
-  const cacheKey = `seats:${trainNumber}:${from}:${to}:${classCode}:${quota}`;
+  const cleanTrainNumber = trainNumber.trim();
+  const cacheKey = `seats:${cleanTrainNumber}:${from}:${to}:${classCode}:${quota}`;
   const cached = getCached<SeatAvailabilityData>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<SeatAvailabilityData>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
-    const data = await getSeatAvailability(trainNumber, from, to, classCode, quota);
+    const data = await getSeatAvailability(cleanTrainNumber, from, to, classCode, quota);
+    if (!data) {
+      return jsonFail('Seat availability data unavailable', 404);
+    }
     setCached(cacheKey, data, 600); // 10 mins cache
 
-    return NextResponse.json<ApiResponse<SeatAvailabilityData>>({
-      success: true,
-      data,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(data, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Failed to fetch seat availability', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/seats]', err);
+    return jsonFail('Failed to fetch seat availability', 500);
   }
 }
+

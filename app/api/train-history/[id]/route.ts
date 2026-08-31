@@ -1,8 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getLiveJourney } from '@/lib/railradar';
+import { NextRequest } from 'next/server';
+import { getJourneyCached } from '@/lib/journey';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
-import { Station } from '@/types/train';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 
 export interface SectionStats {
   fromCode: string;
@@ -80,25 +79,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: trainId } = await params;
-  const cacheKey = `train-history:${trainId}`;
+  if (!trainId || !/^\d{4,5}$/.test(trainId.trim())) {
+    return jsonFail('Valid 4 or 5 digit train number is required', 400);
+  }
+
+  const cleanTrainId = trainId.trim();
+  const cacheKey = `train-history:${cleanTrainId}`;
 
   const cached = getCached<TrainRunningAnalytics>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<TrainRunningAnalytics>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
-    const journey = await getLiveJourney(trainId);
+    const journey = await getJourneyCached(cleanTrainId);
     if (!journey) {
-      return NextResponse.json<ApiResponse<never>>(
-        { success: false, error: 'Train not found', timestamp: new Date().toISOString() },
-        { status: 404 }
-      );
+      return jsonFail('Train not found', 404);
     }
 
     // Only use halt stations for section analytics
@@ -178,7 +174,7 @@ export async function GET(
     const dataQuality: TrainRunningAnalytics['dataQuality'] = hasActualData ? 'live' : hasPassed ? 'partial' : 'estimated';
 
     const result: TrainRunningAnalytics = {
-      trainId,
+      trainId: cleanTrainId,
       trainName: journey.name,
       totalDistanceKm: journey.totalDistanceKm,
       totalScheduledMinutes,
@@ -195,16 +191,10 @@ export async function GET(
 
     setCached(cacheKey, result, 600); // 10 min cache
 
-    return NextResponse.json<ApiResponse<TrainRunningAnalytics>>({
-      success: true,
-      data: result,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(result, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Failed to compute running analytics', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/train-history]', err);
+    return jsonFail('Failed to compute running analytics', 500);
   }
 }
+

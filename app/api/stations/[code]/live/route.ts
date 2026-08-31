@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getStationLiveBoard } from '@/lib/railradar';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 import { StationBoardData } from '@/types/train';
 
 export async function GET(
@@ -11,40 +11,30 @@ export async function GET(
   const resolvedParams = await Promise.resolve(params);
   const code = (resolvedParams?.code || '').trim().toUpperCase();
   const { searchParams } = new URL(request.url);
-  const hours = parseInt(searchParams.get('hours') || '4', 10);
+  const rawHours = searchParams.get('hours');
+  const hours = Math.min(24, Math.max(1, Number(rawHours) || 4));
 
-  if (!code) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: 'Station code is required', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
+  if (!code || !/^[A-Z]{2,8}$/.test(code)) {
+    return jsonFail('Valid station code (2-8 letters) is required', 400);
   }
 
   const cacheKey = `station:live:${code}:${hours}`;
   const cached = getCached<StationBoardData>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<StationBoardData>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
     const data = await getStationLiveBoard(code, hours);
+    if (!data) {
+      return jsonFail('Live station departures unavailable', 404);
+    }
     setCached(cacheKey, data, 60); // 1 min cache for live board
 
-    return NextResponse.json<ApiResponse<StationBoardData>>({
-      success: true,
-      data,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(data, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Failed to fetch live station departures', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/stations/code/live]', err);
+    return jsonFail('Failed to fetch live station departures', 500);
   }
 }
+

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getStationBoard } from '@/lib/railradar';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 import { StationBoardData } from '@/types/train';
 
 export async function GET(
@@ -10,38 +10,27 @@ export async function GET(
 ) {
   const resolvedParams = await Promise.resolve(params);
   const code = (resolvedParams?.code || '').trim().toUpperCase();
-  if (!code) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: 'Station code is required', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
+  if (!code || !/^[A-Z]{2,8}$/.test(code)) {
+    return jsonFail('Valid station code (2-8 letters) is required', 400);
   }
 
   const cacheKey = `station:board:${code}`;
   const cached = getCached<StationBoardData>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<StationBoardData>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
     const data = await getStationBoard(code);
+    if (!data) {
+      return jsonFail('Station timetable board unavailable', 404);
+    }
     setCached(cacheKey, data, 180); // 3 mins cache
 
-    return NextResponse.json<ApiResponse<StationBoardData>>({
-      success: true,
-      data,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(data, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Failed to fetch station timetable board', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/stations/code]', err);
+    return jsonFail('Failed to fetch station timetable board', 500);
   }
 }
+

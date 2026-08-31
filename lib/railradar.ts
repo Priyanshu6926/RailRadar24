@@ -515,16 +515,19 @@ export async function getLiveJourney(trainNumber: string): Promise<LiveJourney |
 
     if (!liveRes.ok) {
       if (liveRes.status === 404) return null;
-      return generateFallbackJourney(trainNumber);
+      if (process.env.NODE_ENV === 'development') return generateFallbackJourney(trainNumber);
+      return null;
     }
 
     if (!json?.success || !json?.data) {
-      return generateFallbackJourney(trainNumber);
+      if (process.env.NODE_ENV === 'development') return generateFallbackJourney(trainNumber);
+      return null;
     }
 
     return normaliseLiveResponse(json.data as RRLiveResponse, routeGeo);
   } catch (err: any) {
-    return generateFallbackJourney(trainNumber);
+    if (process.env.NODE_ENV === 'development') return generateFallbackJourney(trainNumber);
+    return null;
   }
 }
 

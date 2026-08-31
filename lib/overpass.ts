@@ -25,6 +25,9 @@ function parseName(tags: Record<string, string>): string {
  * Keeps response small enough to avoid 406 payload errors on long routes.
  */
 function buildStationQuery(lat: number, lng: number, pad = 0.2): string {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    return '';
+  }
   const bbox = `${lat - pad},${lng - pad},${lat + pad},${lng + pad}`;
   return `
   way["bridge"="yes"](${bbox});

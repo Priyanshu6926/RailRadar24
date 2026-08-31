@@ -21,7 +21,10 @@ export function useLiveJourney(trainId: string) {
     queryKey: ['liveJourney', trainId],
     queryFn: () => fetchLiveJourney(trainId),
     enabled: Boolean(trainId),
-    refetchInterval: autoRefresh ? 30 * 1000 : false,
-    staleTime: 10 * 1000,
+    refetchInterval: autoRefresh ? 120_000 : false,
+    refetchIntervalInBackground: false,
+    staleTime: 60 * 1000,
+    retry: (n, e) => n < 2 && !/QUOTA_EXCEEDED|TOO_MANY_REQUESTS|404|400|Rate limit/.test((e as Error).message),
+    retryDelay: 2000,
   });
 }

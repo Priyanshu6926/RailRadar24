@@ -78,7 +78,7 @@ export function AnalyticsDashboard({ journey }: AnalyticsDashboardProps) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { icon: Route, color: 'text-rail-blue', bg: 'bg-rail-blue/10', label: 'Total Distance', value: analytics.totalDistanceKm, suffix: ' km' },
-          { icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-500/10', label: 'Highest Point', value: analytics.highestElevationM, suffix: ' m' },
+          { icon: Activity, color: 'text-emerald-600', bg: 'bg-emerald-500/10', label: 'Highest Point', value: analytics.highestElevationM ?? 0, suffix: ' m' },
           { icon: BarChart3, color: 'text-amber-600', bg: 'bg-amber-500/10', label: 'Covered', value: analytics.distanceCoveredKm, suffix: ' km' },
           { icon: Clock, color: 'text-rose-500', bg: 'bg-rose-500/10', label: 'Delay', value: journey.delayMinutes, suffix: ' min' },
         ].map(({ icon: Icon, color, bg, label, value, suffix }) => (

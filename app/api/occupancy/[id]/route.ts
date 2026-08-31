@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { getJourneyCached } from '@/lib/journey';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 
 export interface ClassOccupancy {
   classCode: string;       // 1A, 2A, 3A, SL, CC, GN
@@ -144,48 +145,34 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: trainId } = await params;
-  if (!trainId) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: 'Train ID required', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
+  if (!trainId || !/^\d{4,5}$/.test(trainId.trim())) {
+    return jsonFail('Valid 4 or 5 digit train number is required', 400, 'synthetic');
   }
 
-  const cacheKey = `occupancy:${trainId}`;
+  const cleanTrainId = trainId.trim();
+  const cacheKey = `occupancy:${cleanTrainId}`;
+
   const cached = getCached<TrainOccupancyData>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<TrainOccupancyData>>({
-      success: true, data: cached, cached: true, timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'synthetic');
   }
 
   try {
-    // Fetch live data to get completion percentage and name
-    const liveRes = await fetch(
-      `${request.nextUrl.origin}/api/train/${trainId}`,
-      { next: { revalidate: 60 } }
-    );
+    const journey = await getJourneyCached(cleanTrainId);
     let completionPct = 50;
-    let trainName = `Train #${trainId}`;
-    if (liveRes.ok) {
-      const liveJson = await liveRes.json();
-      if (liveJson?.data) {
-        completionPct = liveJson.data.completionPercentage ?? 50;
-        trainName = liveJson.data.name ?? trainName;
-      }
+    let trainName = `Train #${cleanTrainId}`;
+    if (journey) {
+      completionPct = journey.completionPercentage ?? 50;
+      trainName = journey.name ?? trainName;
     }
 
-    const data = generateOccupancy(trainId, trainName, completionPct);
+    const data = generateOccupancy(cleanTrainId, trainName, completionPct);
     setCached(cacheKey, data, 120); // 2 min cache
 
-    return NextResponse.json<ApiResponse<TrainOccupancyData>>({
-      success: true, data, cached: false, timestamp: new Date().toISOString(),
-    });
+    return jsonOk(data, false, 200, 'synthetic');
   } catch (err: any) {
-    // Fallback with 50% completion
-    const data = generateOccupancy(trainId, `Train #${trainId}`, 50);
-    return NextResponse.json<ApiResponse<TrainOccupancyData>>({
-      success: true, data, cached: false, timestamp: new Date().toISOString(),
-    });
+    console.error('[api/occupancy]', err);
+    return jsonFail('Failed to generate occupancy model', 500, 'synthetic');
   }
 }
+

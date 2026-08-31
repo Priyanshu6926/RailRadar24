@@ -1,47 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getTrainFare } from '@/lib/railradar';
 import { getCached, setCached } from '@/lib/cache';
-import { ApiResponse } from '@/types/api';
+import { jsonOk, jsonFail } from '@/lib/api-response';
 import { TrainFareData } from '@/types/train';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trainNumber = searchParams.get('trainNumber');
-  const from = searchParams.get('from') || undefined;
-  const to = searchParams.get('to') || undefined;
+  const from = searchParams.get('from')?.trim().toUpperCase() || undefined;
+  const to = searchParams.get('to')?.trim().toUpperCase() || undefined;
 
-  if (!trainNumber) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: 'trainNumber query parameter is required', timestamp: new Date().toISOString() },
-      { status: 400 }
-    );
+  if (!trainNumber || !/^\d{4,5}$/.test(trainNumber.trim())) {
+    return jsonFail('Valid 4 or 5 digit trainNumber is required', 400);
   }
 
-  const cacheKey = `fare:${trainNumber}:${from || ''}:${to || ''}`;
+  const cleanTrainNumber = trainNumber.trim();
+  const cacheKey = `fare:${cleanTrainNumber}:${from || ''}:${to || ''}`;
   const cached = getCached<TrainFareData>(cacheKey);
   if (cached) {
-    return NextResponse.json<ApiResponse<TrainFareData>>({
-      success: true,
-      data: cached,
-      cached: true,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(cached, true, 200, 'live');
   }
 
   try {
-    const data = await getTrainFare(trainNumber, from, to);
+    const data = await getTrainFare(cleanTrainNumber, from, to);
+    if (!data) {
+      return jsonFail('Fare data unavailable for train', 404);
+    }
     setCached(cacheKey, data, 3600); // 1h cache
 
-    return NextResponse.json<ApiResponse<TrainFareData>>({
-      success: true,
-      data,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    return jsonOk(data, false, 200, 'live');
   } catch (err: any) {
-    return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Failed to fetch train fares', timestamp: new Date().toISOString() },
-      { status: 500 }
-    );
+    console.error('[api/fare]', err);
+    return jsonFail('Failed to fetch train fares', 500);
   }
 }
+

@@ -66,18 +66,45 @@ export async function getTerrainFeatures(
     const unionBody = batch.map((s) => buildStationQuery(s.lat, s.lng)).join('\n');
     const query = `[out:json][timeout:20];\n(\n${unionBody}\n);\nout center tags 60;`;
 
-    try {
-      const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(query)}`,
-      });
+    let attempt = 0;
+    let res: Response | null = null;
 
-      if (!res.ok) {
-        console.warn(`Overpass batch ${b / batchSize} returned ${res.status}, skipping batch`);
-        continue;
+    while (attempt < 3) {
+      try {
+        res = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'RailRadar24/0.1 (github.com/Priyanshu6926)',
+          },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: AbortSignal.timeout(20_000),
+        });
+
+        if (res.status === 429 || res.status === 504) {
+          attempt++;
+          if (attempt < 3) {
+            await new Promise((r) => setTimeout(r, 1500 * attempt));
+            continue;
+          }
+        }
+        break;
+      } catch (err) {
+        attempt++;
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 1000 * attempt));
+        } else {
+          console.warn(`[overpass] Batch ${b / batchSize} failed after retries:`, err);
+        }
       }
+    }
 
+    if (!res || !res.ok) {
+      console.warn(`[overpass] Batch ${b / batchSize} returned ${res?.status ?? 'timeout'}, skipping batch`);
+      continue;
+    }
+
+    try {
       const json = await res.json();
       const elements: any[] = json?.elements || [];
 

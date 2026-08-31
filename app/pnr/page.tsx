@@ -64,9 +64,13 @@ function PNRContent() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!pnrInput.trim()) return;
-    router.push(`/pnr?pnr=${pnrInput.trim()}`);
-    fetchPNR(pnrInput.trim());
+    const clean = pnrInput.trim();
+    if (!clean) return;
+    if (pnrParam === clean) {
+      fetchPNR(clean);
+    } else {
+      router.push(`/pnr?pnr=${clean}`);
+    }
   };
 
   return (

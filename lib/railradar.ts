@@ -14,6 +14,7 @@ import {
 } from '@/types/train';
 import { env } from '@/config/env';
 import { searchLocalTrains, TRAINS_DB, searchLocalStations, getLocalStations } from '@/lib/trains-db';
+import { interpolatePolylineAlongRoute, haversineKm } from '@/lib/geo';
 
 const RR_BASE = 'https://api.railradar.in/v1';
 
@@ -168,39 +169,6 @@ function normaliseRouteStop(stop: RRRouteStop, stationMap: Map<string, RRStation
   };
 }
 
-function interpolatePolyline(coords: [number, number][], pct: number): [number, number] {
-  if (!coords || coords.length === 0) return [77.2194, 28.643];
-  if (coords.length === 1 || pct <= 0) return coords[0];
-  if (pct >= 100) return coords[coords.length - 1];
-
-  const distances: number[] = [0];
-  let totalDist = 0;
-  for (let i = 1; i < coords.length; i++) {
-    const [lng1, lat1] = coords[i - 1];
-    const [lng2, lat2] = coords[i];
-    const dx = lng2 - lng1;
-    const dy = lat2 - lat1;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    totalDist += dist;
-    distances.push(totalDist);
-  }
-
-  if (totalDist === 0) return coords[0];
-
-  const targetDist = (pct / 100) * totalDist;
-  for (let i = 1; i < coords.length; i++) {
-    if (distances[i] >= targetDist) {
-      const segStartDist = distances[i - 1];
-      const segLen = distances[i] - segStartDist;
-      const t = segLen > 0 ? (targetDist - segStartDist) / segLen : 0;
-      const [lng1, lat1] = coords[i - 1];
-      const [lng2, lat2] = coords[i];
-      return [lng1 + t * (lng2 - lng1), lat1 + t * (lat2 - lat1)];
-    }
-  }
-  return coords[coords.length - 1];
-}
-
 function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][]): LiveJourney {
   const train = raw.train;
 
@@ -215,9 +183,11 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
     const st = normaliseRouteStop(s, stationMap);
     if ((!st.lat || !st.lng) && routeGeo && routeGeo.length >= 2 && totalDistanceKm > 0) {
       const pct = Math.min(100, Math.max(0, (st.distanceKm / totalDistanceKm) * 100));
-      const [lng, lat] = interpolatePolyline(routeGeo, pct);
-      st.lat = lat;
-      st.lng = lng;
+      const interpolated = interpolatePolylineAlongRoute(routeGeo, pct);
+      if (interpolated) {
+        st.lat = interpolated.point[1];
+        st.lng = interpolated.point[0];
+      }
     }
     return st;
   });
@@ -232,6 +202,7 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
 
   let trainLat = raw.currentLocation?.lat;
   let trainLng = raw.currentLocation?.lng;
+  let trainHeading = 45;
 
   if (!trainLat || !trainLng) {
     const posStation = currentStation || previousStation;
@@ -239,12 +210,23 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
       trainLat = posStation.lat;
       trainLng = posStation.lng;
     } else if (routeGeo && routeGeo.length >= 2) {
-      const [lng, lat] = interpolatePolyline(routeGeo, completion);
-      trainLng = lng;
-      trainLat = lat;
+      const interpolated = interpolatePolylineAlongRoute(routeGeo, completion);
+      if (interpolated) {
+        trainLng = interpolated.point[0];
+        trainLat = interpolated.point[1];
+        trainHeading = interpolated.heading;
+      }
+    } else if (train?.source?.lat && train?.source?.lng) {
+      trainLat = train.source.lat;
+      trainLng = train.source.lng;
     } else {
-      trainLat = train?.source?.lat || 28.643;
-      trainLng = train?.source?.lng || 77.2194;
+      trainLat = 0;
+      trainLng = 0;
+    }
+  } else if (routeGeo && routeGeo.length >= 2) {
+    const interpolated = interpolatePolylineAlongRoute(routeGeo, completion);
+    if (interpolated) {
+      trainHeading = interpolated.heading;
     }
   }
 
@@ -316,9 +298,9 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
   }
 
   const currentLocation: LiveJourney['currentLocation'] = {
-    lat: trainLat,
-    lng: trainLng,
-    heading: 45,
+    lat: trainLat ?? 0,
+    lng: trainLng ?? 0,
+    heading: trainHeading,
     speedKmh: liveSpeedKmh,
     isMoving: isMovingNow,
   };

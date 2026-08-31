@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
-import { getTerrainFeatures, TerrainFeature } from '@/lib/overpass';
 import { getJourneyCached } from '@/lib/journey';
+import { getTerrainFeatures, TerrainFeature } from '@/lib/overpass';
 import { getCached, setCached } from '@/lib/cache';
 import { jsonOk, jsonFail } from '@/lib/api-response';
+import { haversineKm } from '@/lib/geo';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -38,13 +39,11 @@ export async function GET(request: NextRequest) {
 
     const features = await getTerrainFeatures(stationCoords);
 
-    // Compute rough distance from origin for each feature using station coordinates
+    // Compute accurate distance from origin for each feature using Haversine
     const origin = journey.stations[0];
     if (origin?.lat && origin?.lng) {
       features.forEach((f) => {
-        const dlat = f.lat - origin.lat;
-        const dlng = f.lng - origin.lng;
-        f.distanceKm = Math.round(Math.sqrt(dlat * dlat + dlng * dlng) * 111);
+        f.distanceKm = Math.round(haversineKm([origin.lng, origin.lat], [f.lng, f.lat]));
       });
     }
 

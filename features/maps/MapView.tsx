@@ -5,6 +5,7 @@ import maplibregl from 'maplibre-gl';
 import { Target, ZoomIn, ZoomOut } from 'lucide-react';
 import { LiveJourney } from '@/types/train';
 import { useJourneyStore } from '@/store/journey';
+import { interpolatePolylineAlongRoute, haversineKm } from '@/lib/geo';
 import { cn } from '@/utils/cn';
 
 // MapTiler key — NEXT_PUBLIC_ prefix means it is exposed to the browser safely
@@ -15,177 +16,151 @@ interface MapViewProps {
   className?: string;
 }
 
-function getPolylinePoint(coords: [number, number][], pct: number): [number, number] {
-  if (!coords || coords.length === 0) return [77.2194, 28.643];
-  if (coords.length === 1 || pct <= 0) return coords[0];
-  if (pct >= 100) return coords[coords.length - 1];
-
-  const distances: number[] = [0];
-  let totalDist = 0;
-  for (let i = 1; i < coords.length; i++) {
-    const [lng1, lat1] = coords[i - 1];
-    const [lng2, lat2] = coords[i];
-    const dx = lng2 - lng1;
-    const dy = lat2 - lat1;
-    totalDist += Math.sqrt(dx * dx + dy * dy);
-    distances.push(totalDist);
-  }
-
-  if (totalDist === 0) return coords[0];
-  const targetDist = (pct / 100) * totalDist;
-  for (let i = 1; i < coords.length; i++) {
-    if (distances[i] >= targetDist) {
-      const segStartDist = distances[i - 1];
-      const segLen = distances[i] - segStartDist;
-      const t = segLen > 0 ? (targetDist - segStartDist) / segLen : 0;
-      const [lng1, lat1] = coords[i - 1];
-      const [lng2, lat2] = coords[i];
-      return [lng1 + t * (lng2 - lng1), lat1 + t * (lat2 - lat1)];
-    }
-  }
-  return coords[coords.length - 1];
-}
-
 export default function MapView({ journey, className }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
   const stationMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const isUserInteractingRef = useRef<boolean>(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [styleLoaded, setStyleLoaded] = useState(false);
 
   const followTrainMode = useJourneyStore((state) => state.followTrainMode);
   const setFollowTrainMode = useJourneyStore((state) => state.setFollowTrainMode);
 
-  // ─── Init map ─────────────────────────────────────────────────────────────
+  const coords = journey.routeGeometry || [];
+
+  // Initialize MapLibre GL
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    if (!mapContainerRef.current || mapRef.current) return;
 
     const styleUrl = MAPTILER_KEY
       ? `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`
-      : {
-          version: 8 as const,
-          sources: {
-            'carto-dark': {
-              type: 'raster' as const,
-              tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution: '© OpenStreetMap © CARTO',
-            },
-          },
-          layers: [{ id: 'carto-layer', type: 'raster' as const, source: 'carto-dark' }],
-        };
-
-    const center: [number, number] = [
-      journey.currentLocation?.lng || journey.stations[0]?.lng || 77.22,
-      journey.currentLocation?.lat || journey.stations[0]?.lat || 28.64,
-    ];
+      : 'https://demotiles.maplibre.org/style.json';
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: styleUrl as any,
-      center,
-      zoom: 7,
-      pitch: 30,
+      style: styleUrl,
+      center: coords.length > 0 ? coords[0] : [78.9629, 20.5937],
+      zoom: 5,
+      pitch: 0,
+      attributionControl: false,
     });
 
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: false }), 'bottom-right');
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-left');
 
     map.on('load', () => {
       mapRef.current = map;
       setMapLoaded(true);
+      setStyleLoaded(true);
     });
 
-    // Disable follow mode when user drags the map
-    map.on('dragstart', () => setFollowTrainMode(false));
+    map.on('dragstart', () => { isUserInteractingRef.current = true; setFollowTrainMode(false); });
+    map.on('zoomstart', () => { isUserInteractingRef.current = true; });
 
     return () => {
+      markerRef.current?.remove();
+      stationMarkersRef.current.forEach((m) => m.remove());
       map.remove();
       mapRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Update map contents when journey or mapLoaded changes ─────────────────
+  // Update Route Polyline & Markers on Journey change
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded) return;
+    if (!map || !mapLoaded || !styleLoaded) return;
 
-    // Build coordinate array from routeGeometry or station coords
-    const coords: [number, number][] =
-      journey.routeGeometry ||
-      journey.stations
-        .filter((s) => s.lat && s.lng)
-        .map((s) => [s.lng, s.lat] as [number, number]);
+    // ─ Route Geometry Layer ─
+    if (coords.length > 1) {
+      const geojson: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: coords,
+            },
+            properties: {},
+          },
+        ],
+      };
 
-    if (coords.length < 2) return;
-
-    // ─ Route GeoJSON Source & Layers ─
-    const routeGeoJSON: GeoJSON.Feature<GeoJSON.LineString> = {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: coords },
-    };
-
-    if (map.getSource('route')) {
-      (map.getSource('route') as maplibregl.GeoJSONSource).setData(routeGeoJSON);
-    } else {
-      map.addSource('route', { type: 'geojson', data: routeGeoJSON });
-
-      // Glow / halo layer
-      map.addLayer({
-        id: 'route-glow',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#0284c7', 'line-width': 12, 'line-opacity': 0.2, 'line-blur': 8 },
-      });
-
-      // Main route line
-      map.addLayer({
-        id: 'route-line',
-        type: 'line',
-        source: 'route',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#38bdf8', 'line-width': 3.5 },
-      });
+      if (map.getSource('train-route')) {
+        (map.getSource('train-route') as maplibregl.GeoJSONSource).setData(geojson);
+      } else {
+        map.addSource('train-route', { type: 'geojson', data: geojson });
+        map.addLayer({
+          id: 'train-route-casing',
+          type: 'line',
+          source: 'train-route',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': '#0284c7',
+            'line-width': 6,
+            'line-opacity': 0.3,
+          },
+        });
+        map.addLayer({
+          id: 'train-route-line',
+          type: 'line',
+          source: 'train-route',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': '#38bdf8',
+            'line-width': 3,
+            'line-opacity': 0.9,
+          },
+        });
+      }
     }
 
     // ─ Train Marker ─
     let trainLng = journey.currentLocation?.lng;
     let trainLat = journey.currentLocation?.lat;
 
-    const isAtOrigin = trainLng === coords[0]?.[0] && trainLat === coords[0]?.[1];
-    if (!trainLng || !trainLat || (isAtOrigin && journey.completionPercentage > 2)) {
-      const [interpolatedLng, interpolatedLat] = getPolylinePoint(coords, journey.completionPercentage);
-      trainLng = interpolatedLng;
-      trainLat = interpolatedLat;
+    const isAtOrigin = coords.length > 0 && trainLng === coords[0]?.[0] && trainLat === coords[0]?.[1];
+    if ((!trainLng || !trainLat || (isAtOrigin && journey.completionPercentage > 2)) && coords.length > 0) {
+      const interpolated = interpolatePolylineAlongRoute(coords, journey.completionPercentage);
+      if (interpolated) {
+        trainLng = interpolated.point[0];
+        trainLat = interpolated.point[1];
+      }
     }
 
-    if (!markerRef.current) {
-      const el = document.createElement('div');
-      el.innerHTML = `
-        <div class="relative flex items-center justify-center w-10 h-10">
-          <div class="absolute inset-0 rounded-full bg-sky-500/30 animate-ping"></div>
-          <div class="relative flex h-9 w-9 items-center justify-center rounded-full bg-sky-500 text-white border-2 border-white shadow-lg text-lg">
-            🚄
-          </div>
-        </div>`;
-
-      const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(`
+    // Only render train marker if valid coordinates exist (R-32)
+    if (trainLng !== undefined && trainLat !== undefined && Number.isFinite(trainLng) && Number.isFinite(trainLat)) {
+      const popupHtml = `
         <div class="p-2 font-sans">
           <div class="font-bold text-xs">${journey.name}</div>
           <div class="text-[11px] text-gray-500">#${journey.number}</div>
           <div class="text-[11px] font-semibold text-sky-600 mt-0.5">
-            ${journey.speedKmh} km/h · Delay: ${journey.delayMinutes > 0 ? '+' + journey.delayMinutes + 'm' : 'On time'}
+            ${journey.speedKmh !== null ? `${journey.speedKmh} km/h` : 'Speed: —'} · Delay: ${journey.delayMinutes > 0 ? '+' + journey.delayMinutes + 'm' : 'On time'}
           </div>
-        </div>`);
+        </div>`;
 
-      markerRef.current = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([trainLng, trainLat])
-        .setPopup(popup)
-        .addTo(map);
-    } else {
-      markerRef.current.setLngLat([trainLng, trainLat]);
+      if (!markerRef.current) {
+        const el = document.createElement('div');
+        el.innerHTML = `
+          <div class="relative flex items-center justify-center w-10 h-10">
+            <div class="absolute inset-0 rounded-full bg-sky-500/30 animate-ping"></div>
+            <div class="relative flex h-9 w-9 items-center justify-center rounded-full bg-sky-500 text-white border-2 border-white shadow-lg text-lg">
+              🚄
+            </div>
+          </div>`;
+
+        const popup = new maplibregl.Popup({ offset: 16, closeButton: false }).setHTML(popupHtml);
+
+        markerRef.current = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([trainLng, trainLat])
+          .setPopup(popup)
+          .addTo(map);
+      } else {
+        markerRef.current.setLngLat([trainLng, trainLat]);
+        markerRef.current.getPopup()?.setHTML(popupHtml);
+      }
     }
 
     // ─ Station Markers ─

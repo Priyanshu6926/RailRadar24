@@ -17,6 +17,7 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
   const [display, setDisplay] = useState(0);
 
   useEffect(() => {
+    let raf = 0;
     const duration = 800;
     const start = Date.now();
     const tick = () => {
@@ -24,9 +25,12 @@ function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: strin
       const progress = Math.min(elapsed / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
       setDisplay(Math.round(eased * value));
-      if (progress < 1) requestAnimationFrame(tick);
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      }
     };
-    requestAnimationFrame(tick);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
   }, [value]);
 
   return (

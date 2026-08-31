@@ -23,6 +23,7 @@ export const useSearchStore = create<SearchState>()(
     }),
     {
       name: 'railradar24-recent-searches',
+      skipHydration: true,
     }
   )
 );

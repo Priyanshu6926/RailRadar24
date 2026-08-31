@@ -4,6 +4,7 @@ import '@/styles/globals.css';
 import QueryProvider from '@/providers/query-provider';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
+import { StoreHydration } from '@/components/layout/StoreHydration';
 
 const inter = Inter({ subsets: ['latin'], display: 'swap' });
 
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className={`${inter.className} min-h-full flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100`}
       >
         <QueryProvider>
+          <StoreHydration />
           <Navbar />
           <main className="flex-1 px-4 py-6 max-w-7xl mx-auto w-full pb-24 md:pb-6">
             {children}

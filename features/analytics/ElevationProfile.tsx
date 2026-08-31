@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Mountain, TrendingUp } from 'lucide-react';
-import { ElevationPoint } from '@/lib/opentopography';
+import { ElevationPoint } from '@/lib/elevation';
 
 interface ElevationProfileProps {
   data: ElevationPoint[];

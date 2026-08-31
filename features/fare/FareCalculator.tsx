@@ -61,7 +61,7 @@ export function FareCalculator({ trainNumber, fromCode, fromName, toCode, toName
             <span>Ticket Fare Calculator</span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Official Indian Railways itemized fare breakdown including GST & surcharges.
+            Indicative fare estimate — verify on IRCTC before booking.
           </p>
         </div>
 

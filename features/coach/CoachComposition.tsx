@@ -113,7 +113,7 @@ export function CoachComposition({ trainId, trainName }: CoachCompositionProps) 
         </div>
       )}
 
-      {error && !loading && (
+      {(error || (!loading && (!data || data.coaches.length === 0))) && (
         <div className="rounded-2xl bg-slate-100 dark:bg-slate-900 p-4 text-sm text-slate-500 flex items-center gap-2">
           <Info className="h-4 w-4 flex-shrink-0" />
           Coach composition data unavailable for this train.

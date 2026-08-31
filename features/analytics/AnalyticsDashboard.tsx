@@ -62,7 +62,7 @@ export function AnalyticsDashboard({ journey }: AnalyticsDashboardProps) {
     return (
       <div className="space-y-4">
         <div className="glass-panel rounded-2xl p-5 text-xs text-slate-400 text-center">
-          Computing journey analytics & elevation profile from OpenTopography…
+          Computing journey analytics & terrain elevation profile…
         </div>
       </div>
     );

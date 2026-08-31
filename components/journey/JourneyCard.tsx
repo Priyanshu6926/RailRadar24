@@ -99,15 +99,17 @@ export function JourneyCard({
           </div>
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Live Speed
+              {journey.speedKmh !== null ? 'Live Speed' : 'Speed'}
             </span>
             {journey.currentLocation.isMoving ? (
               <>
                 <div className="flex items-baseline gap-1">
                   <span className="font-mono text-xl font-bold text-slate-900 dark:text-white">
-                    {journey.speedKmh}
+                    {journey.speedKmh !== null ? journey.speedKmh : '—'}
                   </span>
-                  <span className="text-xs font-semibold text-slate-500">km/h</span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {journey.speedKmh !== null ? 'km/h' : `(avg ~${journey.avgSpeed ?? 80} km/h)`}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1 mt-0.5">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />

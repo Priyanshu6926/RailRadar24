@@ -128,27 +128,24 @@ function ClassCard({ cls, index }: { cls: ClassOccupancy; index: number }) {
 
 // ── Coach Heatmap ────────────────────────────────────────────────────────────
 function CoachHeatmap({ classes }: { classes: ClassOccupancy[] }) {
-  const coaches: { code: string; fill: number; emoji: string }[] = [];
+  const coaches: { code: string; status: ClassOccupancy['status']; emoji: string }[] = [];
   classes.forEach((cls) => {
-    // Vary each coach's fill slightly around class average
     for (let i = 0; i < cls.coachCount; i++) {
-      const variance = (Math.sin(i * 17 + cls.classCode.charCodeAt(0)) * 0.15);
-      const fill = Math.min(100, Math.max(0, cls.fillPercent + variance * 100));
-      coaches.push({ code: `${cls.classCode}${i + 1}`, fill, emoji: cls.emoji });
+      coaches.push({ code: `${cls.classCode}${i + 1}`, status: cls.status, emoji: cls.emoji });
     }
   });
 
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-        Coach-level Heatmap
+        Coach-level Demand Layout (Simulated)
       </p>
       <div className="flex flex-wrap gap-1.5">
         {coaches.map((c, i) => {
           const bg =
-            c.fill < 50 ? 'bg-emerald-500'
-            : c.fill < 75 ? 'bg-sky-500'
-            : c.fill < 90 ? 'bg-amber-500'
+            c.status === 'available' ? 'bg-emerald-500'
+            : c.status === 'filling' ? 'bg-sky-500'
+            : c.status === 'crowded' ? 'bg-amber-500'
             : 'bg-rose-500';
           return (
             <motion.div
@@ -156,13 +153,13 @@ function CoachHeatmap({ classes }: { classes: ClassOccupancy[] }) {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.02 }}
-              title={`${c.code} — ${Math.round(c.fill)}% full`}
+              title={`${c.code} — ${c.status}`}
               className={cn('flex flex-col items-center justify-center rounded-lg p-1.5 min-w-[44px] border border-white/10', bg + '/20')}
             >
               <span className="text-sm leading-none">{c.emoji}</span>
               <span className="text-[8px] font-bold font-mono mt-0.5 text-slate-700 dark:text-slate-300">{c.code}</span>
               <div className="h-1 w-full rounded-full bg-slate-200/40 dark:bg-slate-800/40 overflow-hidden mt-1">
-                <div className={cn('h-full rounded-full', bg)} style={{ width: `${c.fill}%` }} />
+                <div className={cn('h-full rounded-full', bg)} style={{ width: '100%' }} />
               </div>
             </motion.div>
           );
@@ -177,6 +174,7 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
   const [data, setData] = useState<TrainOccupancyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showBanner, setShowBanner] = useState(true);
 
   useEffect(() => {
     async function load() {
@@ -204,11 +202,11 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
       <div className="glass-panel rounded-3xl p-6 shadow-glass space-y-4">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-rail-blue" />
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Train Occupancy</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Occupancy (Simulated)</h3>
         </div>
         <div className="flex items-center gap-3 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin text-rail-blue" />
-          <span>Loading occupancy data…</span>
+          <span>Loading simulated demand model…</span>
         </div>
       </div>
     );
@@ -219,7 +217,7 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
       <div className="glass-panel rounded-3xl p-6 shadow-glass">
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <Info className="h-4 w-4" />
-          <span>Occupancy data unavailable.</span>
+          <span>Occupancy simulation unavailable.</span>
         </div>
       </div>
     );
@@ -233,11 +231,29 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
 
   return (
     <div className="glass-panel rounded-3xl p-6 shadow-glass space-y-6">
+      {/* Simulation Notice Banner */}
+      {showBanner && (
+        <div className="flex items-start justify-between gap-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 p-4 text-xs text-amber-800 dark:text-amber-300">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>
+              <strong>Simulated Demand Model:</strong> Estimated load heuristic based on train class and time of day — not official IRCTC/PRS reservation figures.
+            </span>
+          </div>
+          <button
+            onClick={() => setShowBanner(false)}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Users className="h-5 w-5 text-rail-blue" />
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Train Occupancy</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Occupancy (Simulated Model)</h3>
         </div>
         <div className={cn('flex items-center gap-1 text-xs font-bold', trendColor)}>
           <TrendIcon className="h-3.5 w-3.5" />
@@ -250,18 +266,17 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
         <OccupancyRing pct={data.overallFillPercent} />
         <div className="space-y-2">
           <div>
-            <p className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
-              {data.totalOccupied.toLocaleString()}
-              <span className="text-base font-medium text-slate-500"> / {data.totalSeats.toLocaleString()}</span>
+            <p className="text-xl font-extrabold text-slate-900 dark:text-white font-mono">
+              {data.overallFillPercent < 50 ? 'Available' : data.overallFillPercent < 80 ? 'Moderate Load' : 'Heavy Load'}
             </p>
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Passengers on board</p>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Estimated Demand Level</p>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
             <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-              {data.classes.length} classes active
+              {data.classes.length} classes modelled
             </span>
             <span className="bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-              {data.journeyCompletionPct}% journey done
+              {data.journeyCompletionPct}% journey completed
             </span>
           </div>
         </div>
@@ -270,7 +285,7 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
       {/* Class-wise breakdown */}
       <div>
         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-          Class-wise Breakdown
+          Class Demand Overview (Simulated)
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {data.classes.map((cls, i) => (

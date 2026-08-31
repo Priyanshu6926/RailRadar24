@@ -15,28 +15,9 @@ import {
   Filter,
   Users,
 } from 'lucide-react';
-import { StationBoardData, StationBoardTrainItem } from '@/types/train';
+import { StationBoardData } from '@/types/train';
+import { getEstimatedCrowd } from '@/lib/crowd';
 import { cn } from '@/utils/cn';
-
-// ── Quick crowd score for station board ──────────────────────────────────────
-function boardCrowdBadge(train: StationBoardTrainItem): { dot: string; label: string; text: string } {
-  const hour = new Date().getHours();
-  const isPeak = (hour >= 6 && hour <= 10) || (hour >= 17 && hour <= 21);
-  const name = (train.trainName || '').toLowerCase();
-  const isAC = name.includes('rajdhani') || name.includes('shatabdi') || name.includes('vande bharat') || name.includes('duronto');
-  const isGeneral = name.includes('passenger') || name.includes('local') || name.includes('memu') || name.includes('demu');
-
-  let score = isPeak ? 55 : 30;
-  if (isAC) score -= 20;
-  if (isGeneral) score += 25;
-  if (train.delayMinutes > 30) score += 15;
-  score = Math.min(100, Math.max(0, score));
-
-  if (score < 35) return { dot: 'bg-emerald-500', label: 'Low', text: 'text-emerald-400' };
-  if (score < 60) return { dot: 'bg-amber-400', label: 'Mod.', text: 'text-amber-400' };
-  if (score < 80) return { dot: 'bg-orange-500', label: 'High', text: 'text-orange-400' };
-  return { dot: 'bg-rose-500', label: 'V.High', text: 'text-rose-400' };
-}
 
 interface StationLiveBoardProps {
   stationCode: string;
@@ -47,7 +28,11 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
   const [data, setData] = useState<StationBoardData | null>(initialData || null);
   const [loading, setLoading] = useState(!initialData);
   const [filter, setFilter] = useState<'ALL' | 'ON_TIME' | 'DELAYED'>('ALL');
-  const [lastRefreshed, setLastRefreshed] = useState<string>(new Date().toLocaleTimeString('en-IN'));
+  const [lastRefreshed, setLastRefreshed] = useState<string>('');
+
+  useEffect(() => {
+    setLastRefreshed(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }));
+  }, []);
 
   const fetchBoard = async () => {
     setLoading(true);
@@ -56,7 +41,7 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
       const json = await res.json();
       if (json.success && json.data) {
         setData(json.data);
-        setLastRefreshed(new Date().toLocaleTimeString('en-IN'));
+        setLastRefreshed(new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' }));
       }
     } catch (err) {
       console.error('Failed to load station live board', err);
@@ -209,10 +194,10 @@ export function StationLiveBoardView({ stationCode, initialData }: StationLiveBo
                   </div>
 
                   {/* Crowd */}
-                  {(() => { const c = boardCrowdBadge(train); return (
-                    <div className="hidden sm:flex sm:col-span-2 items-center justify-center gap-1.5">
-                      <span className={cn('h-2 w-2 rounded-full flex-shrink-0', c.dot)} />
-                      <span className={cn('text-[10px] font-bold', c.text)}>{c.label}</span>
+                  {(() => { const c = getEstimatedCrowd(train.trainName, train.delayMinutes); return (
+                    <div className="hidden sm:flex sm:col-span-2 items-center justify-center gap-1.5" title={c.description}>
+                      <span className={cn('h-2 w-2 rounded-full flex-shrink-0', c.dotColor)} />
+                      <span className={cn('text-[10px] font-bold', c.textColor)}>{c.band}</span>
                     </div>
                   ); })()}
 

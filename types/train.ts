@@ -45,7 +45,7 @@ export interface LiveLocation {
   lat: number;
   lng: number;
   heading: number; // angle in degrees 0-360
-  speedKmh: number;
+  speedKmh: number | null;
   isMoving: boolean;
 }
 
@@ -64,7 +64,8 @@ export interface LiveJourney {
   currentLocation: LiveLocation;
   status: 'running' | 'delayed' | 'on_time' | 'cancelled' | 'not_started' | 'completed';
   delayMinutes: number;
-  speedKmh: number;
+  speedKmh: number | null;
+  avgSpeed?: number;
   distanceCoveredKm: number;
   remainingDistanceKm: number;
   totalDistanceKm: number;

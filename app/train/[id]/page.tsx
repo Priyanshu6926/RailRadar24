@@ -39,7 +39,7 @@ const TABS = [
   { id: 'analytics', label: 'Analytics', icon: Mountain },
   { id: 'history', label: 'Run Stats', icon: TrendingUp },
   { id: 'coach', label: 'Coach', icon: Train },
-  { id: 'occupancy', label: 'Occupancy', icon: Users },
+  { id: 'occupancy', label: 'Occupancy (Simulated)', icon: Users },
   { id: 'fare', label: 'Fares', icon: IndianRupee },
   { id: 'seats', label: 'Seats', icon: LayoutGrid },
 ] as const;

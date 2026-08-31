@@ -122,7 +122,7 @@ export function PNRResultView({ data, prediction, refund }: PNRResultViewProps) 
         </div>
       </div>
 
-      {/* ─── ML Prediction & Probability Section ──────────────────────────── */}
+      {/* ─── Confirmation Probability Section ──────────────────────────── */}
       {prediction && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -137,20 +137,22 @@ export function PNRResultView({ data, prediction, refund }: PNRResultViewProps) 
               <div>
                 <div className="flex items-center gap-2">
                   <h4 className="font-bold text-slate-900 dark:text-white text-base">
-                    Confirmation Prediction Engine
+                    Confirmation Probability
                   </h4>
-                  <span
-                    className={cn(
-                      'rounded-full px-2.5 py-0.5 text-[10px] font-bold border',
-                      isHigh
-                        ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                        : isMedium
-                        ? 'bg-amber-500/15 text-amber-600 border-amber-500/30'
-                        : 'bg-rose-500/15 text-rose-600 border-rose-500/30'
-                    )}
-                  >
-                    {prediction.status} Chance
-                  </span>
+                  {prediction.status && (
+                    <span
+                      className={cn(
+                        'rounded-full px-2.5 py-0.5 text-[10px] font-bold border',
+                        isHigh
+                          ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                          : isMedium
+                          ? 'bg-amber-500/15 text-amber-600 border-amber-500/30'
+                          : 'bg-slate-500/15 text-slate-600 border-slate-500/30'
+                      )}
+                    >
+                      {prediction.status} Chance
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {prediction.historicalTrend || prediction.message}
@@ -159,30 +161,32 @@ export function PNRResultView({ data, prediction, refund }: PNRResultViewProps) 
             </div>
 
             {/* Gauge */}
-            <div className="flex items-center gap-4 self-end sm:self-center bg-white/70 dark:bg-slate-900/70 px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-              <div className="text-right">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Probability
-                </span>
-                <span
-                  className={cn(
-                    'text-2xl font-extrabold',
-                    isHigh ? 'text-emerald-500' : isMedium ? 'text-amber-500' : 'text-rose-500'
-                  )}
-                >
-                  {prob}%
-                </span>
+            {prob !== undefined && (
+              <div className="flex items-center gap-4 self-end sm:self-center bg-white/70 dark:bg-slate-900/70 px-4 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                    Probability
+                  </span>
+                  <span
+                    className={cn(
+                      'text-2xl font-extrabold',
+                      isHigh ? 'text-emerald-500' : isMedium ? 'text-amber-500' : 'text-rose-500'
+                    )}
+                  >
+                    {prob}%
+                  </span>
+                </div>
+                <div className="h-10 w-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden flex flex-col justify-end">
+                  <div
+                    className={cn(
+                      'w-full transition-all duration-500 rounded-full',
+                      isHigh ? 'bg-emerald-500' : isMedium ? 'bg-amber-500' : 'bg-rose-500'
+                    )}
+                    style={{ height: `${prob}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-10 w-2.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden flex flex-col justify-end">
-                <div
-                  className={cn(
-                    'w-full transition-all duration-500 rounded-full',
-                    isHigh ? 'bg-emerald-500' : isMedium ? 'bg-amber-500' : 'bg-rose-500'
-                  )}
-                  style={{ height: `${prob}%` }}
-                />
-              </div>
-            </div>
+            )}
           </div>
         </motion.div>
       )}

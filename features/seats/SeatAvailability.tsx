@@ -61,7 +61,7 @@ export function SeatAvailability({
             <span>14-Day Rolling Seat Availability Forecast</span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Real-time PRS seat availability & waitlist confirmation probabilities for the next 14 days.
+            Seat availability & waitlist confirmation forecast for the next 14 days.
           </p>
         </div>
 

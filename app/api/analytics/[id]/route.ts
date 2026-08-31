@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getJourneyCached } from '@/lib/journey';
-import { getElevationProfile, ElevationPoint } from '@/lib/opentopography';
+import { getElevationProfile, ElevationPoint } from '@/lib/elevation';
 import { getCached, setCached } from '@/lib/cache';
 import { jsonOk, jsonFail } from '@/lib/api-response';
 

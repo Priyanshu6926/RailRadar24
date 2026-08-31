@@ -252,7 +252,7 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
   // Strategy: derive speed from the actual distance / time window between the
   // last two "passed" stations rather than the static timetable avgSpeed.
   const isMovingNow = raw.status === 'running' && !currentStation;
-  let liveSpeedKmh = 0;
+  let liveSpeedKmh: number | null = 0;
 
   if (isMovingNow) {
     const passedStops = [...relevantStops].filter((s) => {
@@ -260,41 +260,60 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
       return rawSt === 'departed' || rawSt === 'passed' || rawSt === 'arrived';
     });
 
+    let computedSpeed: number | null = null;
+
     if (passedStops.length >= 2) {
       const s1 = passedStops[passedStops.length - 2];
       const s2 = passedStops[passedStops.length - 1];
-      const distDeltaKm = Math.abs((s2.distance || 0) - (s1.distance || 0));
+      const d1 = s1.distance ?? 0;
+      const d2 = s2.distance ?? 0;
+      const distDeltaKm = d2 - d1;
 
-      // Parse HH:MM times into fractional hours
-      const parseHHMM = (t?: string): number | null => {
-        if (!t) return null;
-        const parts = t.includes('T')
-          ? new Date(t).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }).split(':')
-          : t.split(':');
+      const parseTimeToHours = (t?: string): number | null => {
+        if (!t || t === '--:--') return null;
+        if (t.includes('T')) {
+          const d = new Date(t);
+          if (!isNaN(d.getTime())) {
+            return d.getTime() / (1000 * 60 * 60);
+          }
+        }
+        const parts = t.split(':');
         if (parts.length < 2) return null;
-        return parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60;
+        const h = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+        return h + m / 60;
       };
 
-      const t1 = parseHHMM(s1.actualDeparture || s1.scheduledDeparture || s1.departure);
-      const t2 = parseHHMM(s2.actualArrival || s2.scheduledArrival || s2.arrival);
+      // R-29: Require both endpoints from the same source clock
+      let t1: number | null = null;
+      let t2: number | null = null;
+
+      if (s1.actualDeparture && s2.actualArrival) {
+        t1 = parseTimeToHours(s1.actualDeparture);
+        t2 = parseTimeToHours(s2.actualArrival);
+      } else if (s1.scheduledDeparture && s2.scheduledArrival) {
+        t1 = parseTimeToHours(s1.scheduledDeparture);
+        t2 = parseTimeToHours(s2.scheduledArrival);
+      }
 
       if (t1 !== null && t2 !== null && distDeltaKm > 0) {
         let timeDeltaHrs = t2 - t1;
         if (timeDeltaHrs <= 0) timeDeltaHrs += 24; // midnight crossing
         if (timeDeltaHrs > 0 && timeDeltaHrs < 12) {
           const computed = Math.round(distDeltaKm / timeDeltaHrs);
-          // Sanity-cap: Indian trains don't exceed 200 km/h
-          liveSpeedKmh = Math.min(200, Math.max(0, computed));
+          // R-28: Reject impossible speeds (>180 km/h) rather than clamping
+          if (computed > 0 && computed <= 180) {
+            computedSpeed = computed;
+          } else {
+            console.warn(`[railradar] Implausible computed speed rejected: ${computed} km/h`);
+          }
         }
       }
     }
 
-    // Fallback to timetable avgSpeed when computation is impossible
-    if (liveSpeedKmh === 0) {
-      liveSpeedKmh = Math.round(train?.avgSpeed || 80);
-    }
+    liveSpeedKmh = computedSpeed;
   }
-  // If train is at a station (currentStation exists) → speed is 0
 
   const currentLocation: LiveJourney['currentLocation'] = {
     lat: trainLat,
@@ -321,6 +340,7 @@ function normaliseLiveResponse(raw: RRLiveResponse, routeGeo?: [number, number][
     status: normaliseStatus(raw.status),
     delayMinutes: raw.delayMinutes || 0,
     speedKmh: currentLocation.speedKmh,
+    avgSpeed: train?.avgSpeed ? Math.round(train.avgSpeed) : 80,
     distanceCoveredKm: coveredKm,
     remainingDistanceKm: remainingKm,
     totalDistanceKm,
@@ -565,7 +585,7 @@ export async function searchStations(query: string): Promise<StationSearchResult
 
 // ─── 3. PNR Status, Prediction & Refund ────────────────────────────────────
 
-export async function getPNRStatus(pnr: string): Promise<PNRStatusData> {
+export async function getPNRStatus(pnr: string): Promise<PNRStatusData | null> {
   const cleanPnr = pnr.replace(/\D/g, '').slice(0, 10);
   try {
     const res = await rrFetch(`${RR_BASE}/pnr/${cleanPnr}`);
@@ -575,119 +595,87 @@ export async function getPNRStatus(pnr: string): Promise<PNRStatusData> {
         const d = json.data;
         return {
           pnr: d.pnr || cleanPnr,
-          trainNumber: d.trainNumber || d.train?.number || '12951',
-          trainName: d.trainName || d.train?.name || 'Tejas Rajdhani Express',
-          journeyDate: d.journeyDate || d.doj || '2026-08-30',
+          trainNumber: d.trainNumber || d.train?.number || '',
+          trainName: d.trainName || d.train?.name || '',
+          journeyDate: d.journeyDate || d.doj || '',
           fromStation: {
-            code: d.fromStation?.code || d.source || 'MMCT',
-            name: d.fromStation?.name || 'Mumbai Central',
+            code: d.fromStation?.code || d.source || '',
+            name: d.fromStation?.name || '',
           },
           toStation: {
-            code: d.toStation?.code || d.destination || 'NDLS',
-            name: d.toStation?.name || 'New Delhi',
+            code: d.toStation?.code || d.destination || '',
+            name: d.toStation?.name || '',
           },
           boardingStation: {
-            code: d.boardingStation?.code || d.boardingPoint || 'MMCT',
-            name: d.boardingStation?.name || 'Mumbai Central',
+            code: d.boardingStation?.code || d.boardingPoint || '',
+            name: d.boardingStation?.name || '',
           },
           reservationUpto: {
-            code: d.reservationUpto?.code || d.reservationPoint || 'NDLS',
-            name: d.reservationUpto?.name || 'New Delhi',
+            code: d.reservationUpto?.code || d.reservationPoint || '',
+            name: d.reservationUpto?.name || '',
           },
           class: d.class || '3A',
           quota: d.quota || 'GN',
           chartPrepared: Boolean(d.chartPrepared),
           passengers: Array.isArray(d.passengers)
-            ? d.passengers.map((p: any, idx: number) => ({
-                passengerNumber: idx + 1,
-                bookingStatus: p.bookingStatus || 'WL 4',
-                currentStatus: p.currentStatus || 'CNF',
-                coach: p.coach || 'B4',
-                berth: p.berth || 34,
-                berthType: p.berthType || 'MB',
-                predictionProbability: p.probability || 94,
-                predictionStatus: p.probability > 75 ? 'High' : p.probability > 45 ? 'Medium' : 'Low',
-              }))
+            ? d.passengers.map((p: any, idx: number) => {
+                const prob = typeof p.probability === 'number' ? p.probability : undefined;
+                return {
+                  passengerNumber: idx + 1,
+                  bookingStatus: p.bookingStatus || 'WL',
+                  currentStatus: p.currentStatus || 'WL',
+                  coach: p.coach,
+                  berth: p.berth,
+                  berthType: p.berthType,
+                  predictionProbability: prob,
+                  predictionStatus: prob === undefined
+                    ? undefined
+                    : prob > 75 ? 'High' : prob > 45 ? 'Medium' : 'Low',
+                };
+              })
             : [],
-          expectedPlatform: d.expectedPlatform || '1',
+          expectedPlatform: d.expectedPlatform,
         };
       }
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error('[railradar:getPNRStatus]', err);
   }
 
-  // Realistic Fallback PNR for demonstration / offline
-  return {
-    pnr: cleanPnr || '2849102847',
-    trainNumber: '12951',
-    trainName: 'Mumbai Tejas Rajdhani Express',
-    journeyDate: '2026-08-30',
-    fromStation: { code: 'MMCT', name: 'Mumbai Central' },
-    toStation: { code: 'NDLS', name: 'New Delhi' },
-    boardingStation: { code: 'MMCT', name: 'Mumbai Central' },
-    reservationUpto: { code: 'NDLS', name: 'New Delhi' },
-    class: '3A',
-    quota: 'GN',
-    chartPrepared: false,
-    expectedPlatform: '1',
-    passengers: [
-      {
-        passengerNumber: 1,
-        bookingStatus: 'WL 14',
-        currentStatus: 'CNF',
-        coach: 'B3',
-        berth: 47,
-        berthType: 'SL',
-        predictionProbability: 92,
-        predictionStatus: 'High',
-      },
-      {
-        passengerNumber: 2,
-        bookingStatus: 'WL 15',
-        currentStatus: 'RAC 4',
-        coach: 'B3',
-        berth: 48,
-        berthType: 'SU',
-        predictionProbability: 88,
-        predictionStatus: 'High',
-      },
-    ],
-  };
+  return null;
 }
 
-export async function getPNRPrediction(pnr: string): Promise<PNRPredictionData> {
+export async function getPNRPrediction(pnr: string): Promise<PNRPredictionData | null> {
   const cleanPnr = pnr.replace(/\D/g, '').slice(0, 10);
   try {
     const res = await rrFetch(`${RR_BASE}/pnr/${cleanPnr}/prediction`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
+        const prob = typeof json.data.probability === 'number'
+          ? json.data.probability
+          : typeof json.data.confirmationProbability === 'number'
+          ? json.data.confirmationProbability
+          : undefined;
+
         return {
           pnr: cleanPnr,
-          trainNumber: json.data.trainNumber || '12951',
-          confirmationProbability: json.data.probability ?? json.data.confirmationProbability ?? 85,
-          status: (json.data.status as any) || 'High',
-          historicalTrend: json.data.historicalTrend || '89% of similar waitlists confirmed in the last 60 days.',
-          message: json.data.message || 'Very high chances of confirmation before chart preparation.',
+          trainNumber: json.data.trainNumber || '',
+          confirmationProbability: prob,
+          status: json.data.status || (prob !== undefined ? (prob > 75 ? 'High' : prob > 45 ? 'Medium' : 'Low') : 'Unknown'),
+          historicalTrend: json.data.historicalTrend,
+          message: json.data.message || (prob !== undefined ? `${prob}% chance of confirmation.` : 'Confirmation probability unavailable.'),
         };
       }
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error('[railradar:getPNRPrediction]', err);
   }
 
-  return {
-    pnr: cleanPnr,
-    trainNumber: '12951',
-    confirmationProbability: 88,
-    status: 'High',
-    historicalTrend: 'Based on 450+ past journeys on this route, waitlists up to WL 25 confirm 92% of the time.',
-    message: 'High probability of confirmation. Coach allocation expected at charting (4 hours before departure).',
-  };
+  return null;
 }
 
-export async function getPNRRefund(pnr: string): Promise<PNRRefundData> {
+export async function getPNRRefund(pnr: string): Promise<PNRRefundData | null> {
   const cleanPnr = pnr.replace(/\D/g, '').slice(0, 10);
   try {
     const res = await rrFetch(`${RR_BASE}/pnr/${cleanPnr}/refund`);
@@ -696,31 +684,24 @@ export async function getPNRRefund(pnr: string): Promise<PNRRefundData> {
       if (json.success && json.data) {
         return {
           pnr: cleanPnr,
-          ticketFare: json.data.ticketFare ?? 2450,
-          clerkageCharge: json.data.clerkageCharge ?? 60,
-          cancellationCharge: json.data.cancellationCharge ?? 190,
-          refundableAmount: json.data.refundableAmount ?? 2200,
-          ruleApplied: json.data.ruleApplied || 'Cancelled > 48 hours before scheduled departure',
+          ticketFare: json.data.ticketFare,
+          clerkageCharge: json.data.clerkageCharge,
+          cancellationCharge: json.data.cancellationCharge,
+          refundableAmount: json.data.refundableAmount,
+          ruleApplied: json.data.ruleApplied || 'Standard Railway Refund Rules Apply',
         };
       }
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error('[railradar:getPNRRefund]', err);
   }
 
-  return {
-    pnr: cleanPnr,
-    ticketFare: 2450,
-    clerkageCharge: 60,
-    cancellationCharge: 190,
-    refundableAmount: 2200,
-    ruleApplied: 'IRCTC Rule: Cancellation made > 48 hours before departure. Flat cancellation charge applied for AC 3-Tier.',
-  };
+  return null;
 }
 
 // ─── 4. Train Fare Calculator ──────────────────────────────────────────────
 
-export async function getTrainFare(trainNumber: string, fromStation?: string, toStation?: string): Promise<TrainFareData> {
+export async function getTrainFare(trainNumber: string, fromStation?: string, toStation?: string): Promise<TrainFareData | null> {
   try {
     const qs = fromStation && toStation ? `?from=${fromStation}&to=${toStation}` : '';
     const res = await rrFetch(`${RR_BASE}/trains/${trainNumber}/fare${qs}`);
@@ -730,85 +711,11 @@ export async function getTrainFare(trainNumber: string, fromStation?: string, to
         return json.data;
       }
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error('[railradar:getTrainFare]', err);
   }
 
-  const train = TRAINS_DB.find((t) => t.number === trainNumber) || {
-    name: 'Superfast Express',
-    from: fromStation || 'MMCT',
-    to: toStation || 'NDLS',
-  };
-
-  return {
-    trainNumber,
-    trainName: train.name,
-    fromStation: fromStation || 'MMCT',
-    toStation: toStation || 'NDLS',
-    distanceKm: 1384,
-    fares: [
-      {
-        classCode: '1A',
-        className: 'AC First Class',
-        baseFare: 3820,
-        reservationCharge: 60,
-        superfastCharge: 75,
-        gst: 198,
-        totalFare: 4153,
-        availableQuotas: ['GN', 'FT', 'PT'],
-      },
-      {
-        classCode: '2A',
-        className: 'AC 2-Tier',
-        baseFare: 2280,
-        reservationCharge: 50,
-        superfastCharge: 45,
-        gst: 119,
-        totalFare: 2494,
-        availableQuotas: ['GN', 'TQ', 'LD', 'PT'],
-      },
-      {
-        classCode: '3A',
-        className: 'AC 3-Tier',
-        baseFare: 1610,
-        reservationCharge: 40,
-        superfastCharge: 45,
-        gst: 85,
-        totalFare: 1780,
-        availableQuotas: ['GN', 'TQ', 'LD', 'SS'],
-      },
-      {
-        classCode: '3E',
-        className: 'AC 3 Economy',
-        baseFare: 1450,
-        reservationCharge: 40,
-        superfastCharge: 45,
-        gst: 77,
-        totalFare: 1612,
-        availableQuotas: ['GN', 'TQ'],
-      },
-      {
-        classCode: 'SL',
-        className: 'Sleeper Class',
-        baseFare: 590,
-        reservationCharge: 20,
-        superfastCharge: 30,
-        gst: 0,
-        totalFare: 640,
-        availableQuotas: ['GN', 'TQ', 'LD', 'SS', 'DF'],
-      },
-      {
-        classCode: '2S',
-        className: 'Second Sitting',
-        baseFare: 340,
-        reservationCharge: 15,
-        superfastCharge: 15,
-        gst: 0,
-        totalFare: 370,
-        availableQuotas: ['GN', 'TQ'],
-      },
-    ],
-  };
+  return null;
 }
 
 // ─── 5. 14-Day Seat Availability Forecast ──────────────────────────────────
@@ -819,7 +726,7 @@ export async function getSeatAvailability(
   toStation: string,
   classCode: string = '3A',
   quota: string = 'GN'
-): Promise<SeatAvailabilityData> {
+): Promise<SeatAvailabilityData | null> {
   try {
     const res = await rrFetch(
       `${RR_BASE}/trains/${trainNumber}/seats?from=${fromStation}&to=${toStation}&class=${classCode}&quota=${quota}`
@@ -830,58 +737,11 @@ export async function getSeatAvailability(
         return json.data;
       }
     }
-  } catch {
-    // fallback
+  } catch (err) {
+    console.error('[railradar:getSeatAvailability]', err);
   }
 
-  // Generate 14-day rolling seat availability
-  const days: string[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const availability = Array.from({ length: 14 }).map((_, idx) => {
-    const d = new Date();
-    d.setDate(d.getDate() + idx + 1);
-    const dateStr = d.toISOString().split('T')[0];
-    const dayName = days[d.getDay()];
-
-    if (idx === 0 || idx === 1) {
-      return {
-        date: dateStr,
-        day: dayName,
-        status: `WL ${idx * 6 + 12}`,
-        statusCode: 'WL' as const,
-        chance: 75 - idx * 10,
-        fare: 1780,
-      };
-    } else if (idx === 2 || idx === 3) {
-      return {
-        date: dateStr,
-        day: dayName,
-        status: `RAC ${idx + 2}`,
-        statusCode: 'RAC' as const,
-        chance: 95,
-        fare: 1780,
-      };
-    } else {
-      const seats = Math.floor(Math.random() * 80) + 10;
-      return {
-        date: dateStr,
-        day: dayName,
-        status: `AVAILABLE-${seats.toString().padStart(4, '0')}`,
-        statusCode: 'AVAILABLE' as const,
-        chance: 100,
-        fare: 1780,
-      };
-    }
-  });
-
-  return {
-    trainNumber,
-    trainName: 'Express Service',
-    classCode,
-    quota,
-    fromStation,
-    toStation,
-    availability,
-  };
+  return null;
 }
 
 function extractStationEndpoint(raw: any, fallbackCode: string = ''): { code: string; name: string } {

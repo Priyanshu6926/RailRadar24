@@ -177,24 +177,30 @@ export function TrainOccupancy({ trainId, trainName }: TrainOccupancyProps) {
   const [showBanner, setShowBanner] = useState(true);
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       setLoading(true);
       setError(false);
       try {
-        const res = await fetch(`/api/occupancy/${trainId}`);
+        const res = await fetch(`/api/occupancy/${trainId}`, { signal: ac.signal });
         const json = await res.json();
         if (json.success && json.data) {
           setData(json.data);
         } else {
           setError(true);
         }
-      } catch {
-        setError(true);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          setError(true);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
     load();
+    return () => ac.abort();
   }, [trainId]);
 
   if (loading) {

@@ -18,7 +18,13 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
   }>({});
   const [loading, setLoading] = useState(true);
 
+  const currentCode = journey.currentStation?.code || journey.previousStation?.code || journey.stations[0]?.code;
+  const nextCode = journey.nextStation?.code;
+  const destCode = journey.stations[journey.stations.length - 1]?.code;
+
   useEffect(() => {
+    const ac = new AbortController();
+
     async function loadWeather() {
       setLoading(true);
       try {
@@ -32,9 +38,9 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
         }
 
         const [currRes, nextRes, destRes] = await Promise.all([
-          fetch(`/api/weather?lat=${currSt.lat}&lng=${currSt.lng}&name=${encodeURIComponent(currSt.name || currSt.code)}&code=${currSt.code}`),
-          nextSt?.lat ? fetch(`/api/weather?lat=${nextSt.lat}&lng=${nextSt.lng}&name=${encodeURIComponent(nextSt.name || nextSt.code)}&code=${nextSt.code}`) : Promise.resolve(null),
-          fetch(`/api/weather?lat=${destSt.lat}&lng=${destSt.lng}&name=${encodeURIComponent(destSt.name || destSt.code)}&code=${destSt.code}`),
+          fetch(`/api/weather?lat=${currSt.lat}&lng=${currSt.lng}&name=${encodeURIComponent(currSt.name || currSt.code)}&code=${currSt.code}`, { signal: ac.signal }),
+          nextSt?.lat ? fetch(`/api/weather?lat=${nextSt.lat}&lng=${nextSt.lng}&name=${encodeURIComponent(nextSt.name || nextSt.code)}&code=${nextSt.code}`, { signal: ac.signal }) : Promise.resolve(null),
+          fetch(`/api/weather?lat=${destSt.lat}&lng=${destSt.lng}&name=${encodeURIComponent(destSt.name || destSt.code)}&code=${destSt.code}`, { signal: ac.signal }),
         ]);
 
         const currJson = await currRes.json();
@@ -46,14 +52,20 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
           next: nextJson?.data,
           dest: destJson.data,
         });
-      } catch (e) {
-        console.warn('Weather panel loading failed', e);
+      } catch (e: any) {
+        if (e.name !== 'AbortError') {
+          console.warn('Weather panel loading failed', e);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
     loadWeather();
-  }, [journey]);
+
+    return () => ac.abort();
+  }, [currentCode, nextCode, destCode]);
 
   if (loading) {
     return (

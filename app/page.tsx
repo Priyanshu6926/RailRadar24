@@ -43,7 +43,9 @@ type HeroTab = 'train' | 'pnr' | 'planner' | 'stations';
 
 export default function HomePage() {
   const router = useRouter();
-  const { recentSearches, addRecentSearch, clearRecentSearches } = useSearchStore();
+  const recentSearches = useSearchStore((s) => s.recentSearches);
+  const addRecentSearch = useSearchStore((s) => s.addRecentSearch);
+  const clearRecentSearches = useSearchStore((s) => s.clearRecentSearches);
   const [activeHeroTab, setActiveHeroTab] = useState<HeroTab>('train');
 
   // Train search state
@@ -507,15 +509,15 @@ export default function HomePage() {
               icon: <MapPin className="h-6 w-6" />,
               color: 'bg-sky-500/10 text-rail-blue',
               title: 'Live GPS Vector Tracking',
-              desc: 'Interactive MapLibre vector maps with smooth 30s auto-refresh, train headings, and station waypoints.',
+              desc: 'Interactive MapLibre vector maps with 120s auto-refresh, train headings, and station waypoints.',
               link: '/train/12951',
               linkText: 'Track Live Map →',
             },
             {
               icon: <Sparkles className="h-6 w-6" />,
               color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-              title: 'ML PNR Predictor',
-              desc: 'Machine-learning waitlist confirmation forecast with seat allocation & itemized refund calculations.',
+              title: 'PNR Confirmation Forecast',
+              desc: 'Waitlist confirmation forecast with seat allocation status and railway refund calculations.',
               link: '/pnr',
               linkText: 'Check PNR →',
             },

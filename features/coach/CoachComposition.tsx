@@ -66,24 +66,30 @@ export function CoachComposition({ trainId, trainName }: CoachCompositionProps) 
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       setLoading(true);
       setError(false);
       try {
-        const res = await fetch(`/api/coach/${trainId}`);
+        const res = await fetch(`/api/coach/${trainId}`, { signal: ac.signal });
         const json = await res.json();
         if (json.success && json.data) {
           setData(json.data);
         } else {
           setError(true);
         }
-      } catch {
-        setError(true);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          setError(true);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
     load();
+    return () => ac.abort();
   }, [trainId]);
 
   // Count classes for summary chips

@@ -32,23 +32,31 @@ export function StationSearch({
   }, [value]);
 
   useEffect(() => {
+    const ac = new AbortController();
     const timer = setTimeout(async () => {
       if (!isOpen && query === value) return;
       setLoading(true);
       try {
-        const res = await fetch(`/api/search/stations?q=${encodeURIComponent(query)}`);
+        const res = await fetch(`/api/search/stations?q=${encodeURIComponent(query)}`, { signal: ac.signal });
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setResults(json.data);
         }
-      } catch (err) {
-        console.error('Failed to search stations', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to search stations', err);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }, 250);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      ac.abort();
+    };
   }, [query, isOpen, value]);
 
   // Click outside to close

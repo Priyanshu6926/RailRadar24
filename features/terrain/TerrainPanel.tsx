@@ -16,24 +16,30 @@ export function TerrainPanel({ trainId }: TerrainPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       setLoading(true);
       setError(false);
       try {
-        const res = await fetch(`/api/terrain?trainId=${trainId}`);
+        const res = await fetch(`/api/terrain?trainId=${trainId}`, { signal: ac.signal });
         const json = await res.json();
         if (json.success && json.data) {
           setFeatures(json.data);
         } else {
           setError(true);
         }
-      } catch {
-        setError(true);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          setError(true);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
     load();
+    return () => ac.abort();
   }, [trainId]);
 
   return (

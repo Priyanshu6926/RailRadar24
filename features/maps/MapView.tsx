@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import { Target, ZoomIn, ZoomOut } from 'lucide-react';
-import { LiveJourney } from '@/types/train';
+import { LiveJourney, Station } from '@/types/train';
 import { useJourneyStore } from '@/store/journey';
 import { interpolatePolylineAlongRoute, haversineKm } from '@/lib/geo';
 import { cn } from '@/utils/cn';
@@ -16,11 +16,21 @@ interface MapViewProps {
   className?: string;
 }
 
+function getStationDotClass(status: Station['status']): string {
+  return `rounded-full border-2 border-white shadow-sm cursor-pointer transition-transform hover:scale-150 ${
+    status === 'current'
+      ? 'h-4 w-4 bg-sky-500 ring-4 ring-sky-500/30'
+      : status === 'passed'
+      ? 'h-2.5 w-2.5 bg-emerald-500'
+      : 'h-2.5 w-2.5 bg-slate-400'
+  }`;
+}
+
 export default function MapView({ journey, className }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
-  const stationMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const stationMarkersMapRef = useRef<Map<string, { marker: maplibregl.Marker; el: HTMLElement }>>(new Map());
   const isUserInteractingRef = useRef<boolean>(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [styleLoaded, setStyleLoaded] = useState(false);
@@ -29,6 +39,19 @@ export default function MapView({ journey, className }: MapViewProps) {
   const setFollowTrainMode = useJourneyStore((state) => state.setFollowTrainMode);
 
   const coords = journey.routeGeometry || [];
+
+  // Determine current train coordinates
+  let trainLng = journey.currentLocation?.lng;
+  let trainLat = journey.currentLocation?.lat;
+
+  const isAtOrigin = coords.length > 0 && trainLng === coords[0]?.[0] && trainLat === coords[0]?.[1];
+  if ((!trainLng || !trainLat || (isAtOrigin && journey.completionPercentage > 2)) && coords.length > 0) {
+    const interpolated = interpolatePolylineAlongRoute(coords, journey.completionPercentage);
+    if (interpolated) {
+      trainLng = interpolated.point[0];
+      trainLat = interpolated.point[1];
+    }
+  }
 
   // Initialize MapLibre GL
   useEffect(() => {
@@ -61,13 +84,14 @@ export default function MapView({ journey, className }: MapViewProps) {
 
     return () => {
       markerRef.current?.remove();
-      stationMarkersRef.current.forEach((m) => m.remove());
+      stationMarkersMapRef.current.forEach(({ marker }) => marker.remove());
+      stationMarkersMapRef.current.clear();
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Update Route Polyline & Markers on Journey change
+  // Update Route Polyline & Markers on Journey change (R-33)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded || !styleLoaded) return;
@@ -117,20 +141,7 @@ export default function MapView({ journey, className }: MapViewProps) {
       }
     }
 
-    // ─ Train Marker ─
-    let trainLng = journey.currentLocation?.lng;
-    let trainLat = journey.currentLocation?.lat;
-
-    const isAtOrigin = coords.length > 0 && trainLng === coords[0]?.[0] && trainLat === coords[0]?.[1];
-    if ((!trainLng || !trainLat || (isAtOrigin && journey.completionPercentage > 2)) && coords.length > 0) {
-      const interpolated = interpolatePolylineAlongRoute(coords, journey.completionPercentage);
-      if (interpolated) {
-        trainLng = interpolated.point[0];
-        trainLat = interpolated.point[1];
-      }
-    }
-
-    // Only render train marker if valid coordinates exist (R-32)
+    // ─ Train Marker (R-26, R-32) ─
     if (trainLng !== undefined && trainLat !== undefined && Number.isFinite(trainLng) && Number.isFinite(trainLat)) {
       const popupHtml = `
         <div class="p-2 font-sans">
@@ -163,21 +174,15 @@ export default function MapView({ journey, className }: MapViewProps) {
       }
     }
 
-    // ─ Station Markers ─
-    stationMarkersRef.current.forEach((m) => m.remove());
-    stationMarkersRef.current = [];
+    // ─ Station Markers Reuse (R-33) ─
+    const currentCodes = new Set<string>();
 
     journey.stations.forEach((st) => {
-      if (!st.lat || !st.lng) return;
-      const el = document.createElement('div');
-      const isPassed = st.status === 'passed';
-      const isCurrent = st.status === 'current';
+      if (!st.lat || !st.lng || !st.code) return;
+      currentCodes.add(st.code);
 
-      el.innerHTML = `<div class="rounded-full border-2 border-white shadow-sm cursor-pointer transition-transform hover:scale-150 ${
-        isCurrent ? 'h-4 w-4 bg-sky-500 ring-4 ring-sky-500/30' : isPassed ? 'h-2.5 w-2.5 bg-emerald-500' : 'h-2.5 w-2.5 bg-slate-400'
-      }"></div>`;
-
-      const popup = new maplibregl.Popup({ offset: 10, closeButton: false }).setHTML(`
+      const existing = stationMarkersMapRef.current.get(st.code);
+      const popupHtml = `
         <div class="p-2 font-sans">
           <div class="font-bold text-xs">${st.name} (${st.code})</div>
           <div class="text-[11px] text-gray-500 mt-0.5">${st.distanceKm} km from origin</div>
@@ -185,29 +190,56 @@ export default function MapView({ journey, className }: MapViewProps) {
             ${st.delayMinutes > 0 ? `+${st.delayMinutes}m delay` : 'On time'}
           </div>
           ${st.platform ? `<div class="text-[11px] text-gray-500">Platform ${st.platform}</div>` : ''}
-        </div>`);
+        </div>`;
 
-      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
-        .setLngLat([st.lng, st.lat])
-        .setPopup(popup)
-        .addTo(map);
-      stationMarkersRef.current.push(marker);
+      if (existing) {
+        // Update existing marker DOM class and popup without destroying
+        if (existing.el.firstElementChild) {
+          existing.el.firstElementChild.className = getStationDotClass(st.status);
+        }
+        existing.marker.getPopup()?.setHTML(popupHtml);
+      } else {
+        const el = document.createElement('div');
+        el.innerHTML = `<div class="${getStationDotClass(st.status)}"></div>`;
+
+        const popup = new maplibregl.Popup({ offset: 10, closeButton: false }).setHTML(popupHtml);
+        const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+          .setLngLat([st.lng, st.lat])
+          .setPopup(popup)
+          .addTo(map);
+
+        stationMarkersMapRef.current.set(st.code, { marker, el });
+      }
     });
 
-    // ─ Camera ─
-    if (followTrainMode) {
+    // Remove any markers no longer in the station list
+    stationMarkersMapRef.current.forEach(({ marker }, code) => {
+      if (!currentCodes.has(code)) {
+        marker.remove();
+        stationMarkersMapRef.current.delete(code);
+      }
+    });
+  }, [journey.number, journey.completionPercentage, journey.stations, journey.speedKmh, journey.delayMinutes, mapLoaded, styleLoaded]);
+
+  // Separate Camera follow effect (R-34)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !styleLoaded || !followTrainMode) return;
+    if (trainLng !== undefined && trainLat !== undefined && Number.isFinite(trainLng) && Number.isFinite(trainLat)) {
       map.easeTo({ center: [trainLng, trainLat], duration: 800 });
     }
-  }, [journey, mapLoaded, followTrainMode, setFollowTrainMode]);
+  }, [followTrainMode, trainLng, trainLat, mapLoaded, styleLoaded]);
 
   // ─── Controls ──────────────────────────────────────────────────────────────
   const recenter = () => {
     setFollowTrainMode(true);
-    mapRef.current?.easeTo({
-      center: [journey.currentLocation?.lng ?? 77.22, journey.currentLocation?.lat ?? 28.64],
-      zoom: 9,
-      duration: 800,
-    });
+    if (trainLng !== undefined && trainLat !== undefined && Number.isFinite(trainLng) && Number.isFinite(trainLat)) {
+      mapRef.current?.easeTo({
+        center: [trainLng, trainLat],
+        zoom: 9,
+        duration: 800,
+      });
+    }
   };
 
   return (

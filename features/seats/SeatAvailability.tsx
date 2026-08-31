@@ -27,6 +27,7 @@ export function SeatAvailability({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const ac = new AbortController();
     async function fetchSeats() {
       setLoading(true);
       try {
@@ -37,18 +38,23 @@ export function SeatAvailability({
           class: selectedClass,
           quota: selectedQuota,
         });
-        const res = await fetch(`/api/seats?${qs.toString()}`);
+        const res = await fetch(`/api/seats?${qs.toString()}`, { signal: ac.signal });
         const json = await res.json();
         if (json.success && json.data) {
           setData(json.data);
         }
-      } catch (err) {
-        console.error('Failed to load seat availability', err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Failed to load seat availability', err);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
     fetchSeats();
+    return () => ac.abort();
   }, [trainNumber, fromCode, toCode, selectedClass, selectedQuota]);
 
   return (

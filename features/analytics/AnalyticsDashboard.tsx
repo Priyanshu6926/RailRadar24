@@ -45,19 +45,25 @@ export function AnalyticsDashboard({ journey }: AnalyticsDashboardProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const ac = new AbortController();
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/analytics/${journey.trainId}`);
+        const res = await fetch(`/api/analytics/${journey.trainId}`, { signal: ac.signal });
         const json = await res.json();
         if (json.success && json.data) setAnalytics(json.data);
-      } catch (e) {
-        console.warn('Failed to load analytics', e);
+      } catch (e: any) {
+        if (e.name !== 'AbortError') {
+          console.warn('Failed to load analytics', e);
+        }
       } finally {
-        setLoading(false);
+        if (!ac.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
     load();
+    return () => ac.abort();
   }, [journey.trainId]);
 
   const delayInfo = formatDelay(journey.delayMinutes);

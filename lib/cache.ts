@@ -28,3 +28,6 @@ export function setCached<T>(key: string, value: T, ttlSeconds: number): void {
   });
 }
 
+export function clearAllCache(): void {
+  memoryCache.clear();
+}

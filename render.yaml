@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: railradar24
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://railradar24.onrender.com
+      - key: NEXT_PUBLIC_MAPTILER_API_KEY
+        sync: false
+      - key: RAILRADAR_API_KEY
+        sync: false
+      - key: OPENTOPOGRAPHY_API_KEY
+        sync: false

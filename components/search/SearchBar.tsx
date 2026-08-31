@@ -28,11 +28,14 @@ export function SearchBar({ value, onChange, onFocus, inputRef, className }: Sea
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
         placeholder="Enter train number or name (e.g. 12951, Rajdhani)..."
+        aria-label="Search trains"
         className="w-full bg-transparent px-3 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none dark:text-white dark:placeholder-slate-500"
       />
       {value ? (
         <button
           onClick={() => onChange('')}
+          aria-label="Clear search"
+          title="Clear search"
           className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800"
         >
           <X className="h-4 w-4" />

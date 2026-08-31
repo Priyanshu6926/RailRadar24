@@ -70,6 +70,8 @@ export function StationSearch({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const inputId = React.useId();
+
   const handleSelect = (st: StationSearchResult) => {
     setQuery(`${st.name} (${st.code})`);
     onChange(st);
@@ -79,7 +81,7 @@ export function StationSearch({
   return (
     <div ref={containerRef} className={cn('relative w-full', className)}>
       {label && (
-        <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+        <label htmlFor={inputId} className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
           {label}
         </label>
       )}
@@ -92,8 +94,10 @@ export function StationSearch({
       >
         <MapPin className="h-4 w-4 text-rail-blue flex-shrink-0" />
         <input
+          id={inputId}
           type="text"
           value={query}
+          aria-label={label || placeholder}
           onChange={(e) => {
             setQuery(e.target.value);
             setIsOpen(true);
@@ -112,6 +116,8 @@ export function StationSearch({
               setQuery('');
               setIsOpen(true);
             }}
+            aria-label="Clear station"
+            title="Clear station"
             className="rounded-full p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
           >
             <X className="h-3.5 w-3.5" />

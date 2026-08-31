@@ -24,11 +24,15 @@ function parseName(tags: Record<string, string>): string {
  * Build an Overpass QL query for a SINGLE station corridor (±pad degrees).
  * Keeps response small enough to avoid 406 payload errors on long routes.
  */
-function buildStationQuery(lat: number, lng: number, pad = 0.2): string {
+export function buildStationQuery(lat: number, lng: number, pad = 0.2): string {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return '';
   }
-  const bbox = `${lat - pad},${lng - pad},${lat + pad},${lng + pad}`;
+  const s = (lat - pad).toFixed(4);
+  const w = (lng - pad).toFixed(4);
+  const n = (lat + pad).toFixed(4);
+  const e = (lng + pad).toFixed(4);
+  const bbox = `${s},${w},${n},${e}`;
   return `
   way["bridge"="yes"](${bbox});
   way["tunnel"="yes"](${bbox});

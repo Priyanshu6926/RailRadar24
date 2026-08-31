@@ -54,6 +54,7 @@ export function JourneyCard({
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
+              aria-label="Refresh Live Status"
               className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100/80 text-slate-600 transition-colors hover:bg-slate-200 dark:bg-slate-800/80 dark:text-slate-300 dark:hover:bg-slate-700"
               title="Refresh Live Status"
             >
@@ -66,7 +67,7 @@ export function JourneyCard({
       </div>
 
       {/* Primary Live Status Grid */}
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div role="status" aria-live="polite" className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         {/* Current / Last Passed Station */}
         <div className="flex items-center gap-3.5 rounded-2xl border border-slate-100 bg-slate-50/70 p-4 dark:border-slate-800/60 dark:bg-slate-900/50">
           <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">

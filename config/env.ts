@@ -9,15 +9,15 @@ export const env = {
   // OpenWeather — server-side only
   OPENWEATHER_API_KEY: process.env.OPENWEATHER_API_KEY || '',
 
-  // OpenTopography — server-side only
+  // OpenTopography / OpenTopoData — server-side only
   OPENTOPOGRAPHY_API_KEY: process.env.OPENTOPOGRAPHY_API_KEY || '',
 
-  // Upstash Redis (Phase 2)
-  UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
-  UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+  // Site URL
+  SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://railradar24.onrender.com',
 };
 
 // Client-safe config — only include NEXT_PUBLIC_ variables here
 export const clientEnv = {
   MAPTILER_API_KEY: process.env.NEXT_PUBLIC_MAPTILER_API_KEY || '',
+  SITE_URL: process.env.NEXT_PUBLIC_SITE_URL || 'https://railradar24.onrender.com',
 };

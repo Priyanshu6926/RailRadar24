@@ -94,10 +94,12 @@ export function JourneyReportCard({ journey }: JourneyReportCardProps) {
         ctx.font = '10px Inter, sans-serif';
         ctx.fillText('Status', delayX, statsY + 14);
 
+        const siteDomain = (process.env.NEXT_PUBLIC_SITE_URL || 'railradar24.onrender.com').replace(/^https?:\/\//, '');
+
         // Footer
         ctx.fillStyle = '#475569';
         ctx.font = '9px Inter, sans-serif';
-        ctx.fillText('railradar24.app', 20, height - 10);
+        ctx.fillText(siteDomain, 20, height - 10);
         ctx.fillText(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }), width - 80, height - 10);
       }
 
@@ -204,7 +206,9 @@ export function JourneyReportCard({ journey }: JourneyReportCardProps) {
 
             {/* Footer */}
             <div className="flex items-center justify-between pt-3 border-t border-white/10">
-              <p className="text-[10px] text-slate-500">railradar24.app</p>
+              <p className="text-[10px] text-slate-500">
+                {(process.env.NEXT_PUBLIC_SITE_URL || 'railradar24.onrender.com').replace(/^https?:\/\//, '')}
+              </p>
               <p className="text-[10px] text-slate-500">
                 {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
               </p>

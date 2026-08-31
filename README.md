@@ -1,23 +1,25 @@
 # 🚆 RailRadar24 — Live Indian Railways Intelligence Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.0-61dafb?style=for-the-badge&logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38bdf8?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
 [![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-4.5-red?style=for-the-badge&logo=mapbox)](https://maplibre.org/)
-[![RailRadar API](https://img.shields.io/badge/RailRadar_API-v1-0284c7?style=for-the-badge)](https://railradar.in/docs)
+[![Vitest](https://img.shields.io/badge/Tested_with-Vitest-yellow?style=for-the-badge&logo=vitest)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=for-the-badge)](LICENSE)
 
-**RailRadar24** is a modern, real-time Indian Railways tracking platform built with **Next.js 14 (App Router)**, **TypeScript**, **Tailwind CSS**, and **MapLibre GL**. It converts live API feeds into actionable travel intelligence — including vector map tracking, section speed analytics, live coach rake composition, platform crowd predictions, and delay alerts.
+**RailRadar24** is a high-performance, real-time Indian Railways tracking platform built with **Next.js 16 (App Router)**, **React 19**, **TypeScript**, **Tailwind CSS**, and **MapLibre GL**. It converts live timetable and telemetry feeds into actionable travel intelligence — including vector map tracking, section speed analytics, live coach rake diagrams, station weather, and PNR confirmation forecasting.
 
 ---
 
-## ⚡ Technical Highlights (For Recruiters & Engineers)
+## ⚡ Technical Highlights (For Engineers & Reviewers)
 
-* **Spatial API Optimization:** Implemented batched OpenStreetMap Overpass QL corridor queries ($\pm 0.2^\circ$ per station) to eliminate 406 payload limit errors across 1,400+ km train routes.
-* **Geospatial Polyline Interpolation:** Real-time train position calculation along vector polyline geometries with live speed, heading, and distance-covered tracking.
-* **Sectional Speed & Delay Loss Algorithm:** Computes sectional average speeds (km/h) and sectional delay gain/loss metrics between consecutive halt stations.
-* **Zero-Dependency Canvas Engine:** Built a native HTML5 Canvas card renderer for shareable journey cards without bloated external image generation libraries.
-* **Smart UI Architecture:** Responsive glassmorphic layout, dynamic tab routing, TanStack Query v5 state management, and server-side in-memory caching.
+* **Spatial API Optimization:** Implemented batched OpenStreetMap Overpass QL corridor queries ($\pm 0.2^\circ$ per station) with retry backoffs and deduplication to eliminate payload limits across 1,400+ km train routes.
+* **Geospatial Polyline & Bearing Calculation:** Real-time train position interpolation along route polylines using the WGS84 Haversine formula ($R = 6371.0088\text{ km}$), computing exact forward bearings (0–360°).
+* **Sectional Speed & Delay Analytics:** Derives section average speeds (km/h) and delay gain/loss metrics between consecutive halt stations with midnight-crossing normalization.
+* **SRTM 30m Real Elevation Profiles:** Integrated OpenTopoData SRTM 30m batch elevation API with 24-hour route caching to render genuine elevation profiles across railway corridors.
+* **Resilient Architecture:** Server-side proxy routing with LRU/FIFO in-memory caching, client-safe Zustand hydration, `AbortController` cancellation across all polling effects, and App Router error boundaries.
+* **Native Canvas Engine:** Zero-dependency HTML5 Canvas card renderer for high-resolution shareable journey status cards.
 
 ---
 
@@ -25,34 +27,25 @@
 
 | Feature | Description |
 |---|---|
-| 🛰️ **Live Map Tracking** | Interactive MapLibre GL vector map with dynamic train markers & route polylines. |
-| 🚉 **Smart Route Timeline** | Displays official halt stations while collapsing 200+ passing stations into expandable accordions. |
-| 📊 **Section Speed Analytics** | Punctuality score ring (0–100%), section speeds (km/h), and delay loss/gain heatmaps. |
+| 🛰️ **Live Map Tracking** | Interactive MapLibre GL vector map with dynamic train markers, bearing headings & route polylines. |
+| 🚉 **Smart Route Timeline** | Displays official halt stations with live delays while collapsing intermediate passing stations. |
+| 📊 **Section Speed Analytics** | Punctuality score ring (0–100%), verified section speeds (km/h), and delay loss/gain heatmaps. |
 | 🚃 **Coach Composition** | Visual rake diagram rendering coach orders (Loco, EOG, SL, 3A, 2A, 1A, PC, HCP) from live API data. |
-| 📍 **Platform & Crowd Finder** | Next station platform numbers, stop duration, and peak-hour crowd level predictions. |
-| ⛰️ **Terrain & Elevation** | Discovers rivers, bridges, peaks, and cities along the route with OpenTopography SRTM profiles. |
-| 🔔 **Delay Alert Push** | Browser push notification system alerting users on $\ge 10$-minute delay changes. |
-| 🎴 **Journey Report Card** | Designed shareable status cards with direct PNG download and Web Share integration. |
-
----
-
-## 💡 Key Takeaways (For Students & Developers)
-
-If you are exploring this codebase to learn, here are the key concepts implemented:
-1. **Next.js 14 App Router Architecture:** Server Components, Client Components (`'use client'`), and API Route Handlers (`app/api/`).
-2. **External API Aggregation:** Interacting with multiple REST APIs (RailRadar, OpenWeather, OpenTopography, Overpass QL) through server-side proxy routes.
-3. **MapLibre GL Integration:** Custom map styling, vector tiles, polyline rendering, and reactive marker updates.
-4. **Zustand & Persistent State:** Managing application state (favorites, recent searches) synced with `localStorage`.
+| 📍 **Platform & Crowd Heuristics** | Platform numbers, stop durations, and time-of-day crowd density heuristics. |
+| ⛰️ **Terrain & Elevation** | Discovers rivers, bridges, peaks, and tunnels via Overpass QL, paired with SRTM elevation profiles. |
+| 🎫 **PNR Status & Forecast** | Waitlist confirmation probability bands, seat allocation status, and itemized refund calculations. |
+| 🎴 **Journey Report Card** | Shareable status cards with direct PNG download and Web Share API integration. |
 
 ---
 
 ## 🛠️ Tech Stack
 
 ```
-Frontend:  Next.js 14 (App Router) • React 18 • TypeScript • Tailwind CSS • Framer Motion
-Mapping:   MapLibre GL JS • MapTiler Vector Tiles
-State:     TanStack React Query v5 • Zustand
-APIs:      RailRadar API • OpenStreetMap Overpass API • OpenTopography API • OpenWeatherMap API
+Frontend:    Next.js 16 (App Router) • React 19 • TypeScript • Tailwind CSS • Framer Motion
+Mapping:     MapLibre GL JS • MapTiler Vector Tiles
+State:       TanStack React Query v5 • Zustand (Hydration Safe)
+APIs:        RailRadar API • OSM Overpass API • OpenTopoData SRTM • OpenWeatherMap API
+Testing:     Vitest • ESLint 9 Flat Config • GitHub Actions CI
 ```
 
 ---
@@ -62,13 +55,17 @@ APIs:      RailRadar API • OpenStreetMap Overpass API • OpenTopography API �
 ```
 RailRadar24/
 ├── app/
-│   ├── api/                    # Server-side API proxy routes (train, analytics, coach, terrain, weather)
-│   ├── train/[id]/page.tsx     # Main train tracking detail page (5 tab modules)
-│   └── page.tsx                # Homepage search & train lookup
-├── components/                 # Reusable UI components (Navbar, Timeline, JourneyCard)
-├── features/                   # Domain features (maps, analytics, coach, platform, terrain, alerts, share)
-├── lib/                        # API wrappers, cache management, Overpass QL querier
+│   ├── api/                    # Server-side API proxy routes (train, analytics, coach, terrain, weather, health)
+│   ├── train/[id]/page.tsx     # Main train tracking detail page
+│   ├── pnr/page.tsx            # PNR status & prediction view
+│   ├── planner/page.tsx        # Inter-city journey planner
+│   ├── stations/page.tsx       # Live station departure/arrival board
+│   └── page.tsx                # Homepage search & quick lookups
+├── components/                 # Reusable UI components (Navbar, Timeline, JourneyCard, Search)
+├── features/                   # Domain features (maps, analytics, coach, platform, terrain, share)
+├── lib/                        # API clients, geo math (haversine, bearing), elevation, cache
 ├── store/                      # Zustand state stores (favorites, search, journey)
+├── __tests__/                  # Unit tests for core algorithms
 └── types/                      # TypeScript definitions (train, API models)
 ```
 
@@ -96,8 +93,16 @@ OPENWEATHER_API_KEY=your_openweather_api_key
 OPENTOPOGRAPHY_API_KEY=your_opentopography_api_key
 ```
 
-### 3. Run Development Server
+### 3. Run Development Server & Tests
 ```bash
+# Run unit tests
+npm test
+
+# Run type check & linter
+npx tsc --noEmit
+npm run lint
+
+# Start Next.js dev server
 npm run dev
 ```
 Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -106,25 +111,10 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🌐 Hosting & Deployment
 
-* **Vercel (Recommended):** Import `Priyanshu6926/RailRadar24` on Vercel, add Environment Variables, and click **Deploy**.
-* **Render (Web Service):** Connect repository, set Build Command to `npm install && npm run build`, Start Command to `npm start`, add Environment Variables, and deploy.
-
----
-
-## 🔑 Environment Variables Reference
-
-| Variable | Required | Description |
-|---|---|---|
-| `RAILRADAR_API_KEY` | **Yes** | Server-side key for RailRadar live tracking API |
-| `NEXT_PUBLIC_MAPTILER_API_KEY` | **Yes** | Public key for MapTiler vector map layer |
-| `OPENWEATHER_API_KEY` | **Yes** | Server-side key for station weather forecasts |
-| `OPENTOPOGRAPHY_API_KEY` | Optional | Key for SRTM elevation profile data |
-
----
-
-## 👨‍💻 Author
-
-Built with ❤️ by **[Priyanshu](https://github.com/Priyanshu6926)**
+* **Render (Recommended):** Deploy as a Node Web Service using the provided [`render.yaml`](render.yaml) blueprint:
+  * **Build Command:** `npm ci --include=dev && npm run build`
+  * **Start Command:** `npm run start`
+  * **Health Check Path:** `/api/health`
 
 ---
 

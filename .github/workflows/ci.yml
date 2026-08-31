@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, test]
+  pull_request:
+    branches: [main, master, test]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --include=dev
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build Next.js application
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://railradar24.onrender.com
+          NEXT_PUBLIC_MAPTILER_API_KEY: test_key
+          RAILRADAR_API_KEY: test_key
+          OPENWEATHER_API_KEY: test_key
+          OPENTOPOGRAPHY_API_KEY: test_key
